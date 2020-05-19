@@ -10,7 +10,7 @@ MAX_PULSE_DEFS = 16
 TEMPLATES = ['Square', 'Long drive', 'Sin2', 'SinP', 'Sinc', 'Triangle', 'Gaussian', 'Cool']
 TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
-VERSION = '1.2'
+VERSION = '1.5'
 DRIVER_PATH = 'Vivace_Pulse_Sequencer'
 INTERFACE = 'TCPIP'
 
@@ -138,37 +138,22 @@ def section_port_sequence(port):
 
     # Whether to copy another sequence
     gen.create_quant(f'Port {port} - mode', 'Mode', 'COMBO', group, section)
-    gen.combo_options('Disabled', 'Define', 'Copy', 'DRAG')
+    gen.combo_options('Disabled', 'Define', 'Copy')
 
     gen.create_quant(f'Port {port} - copy sequence from', 'Copy from port', 'COMBO', group, section)
     gen.combo_options(*[str(i) for i in range(1, 9) if i != port])
     gen.visibility(f'Port {port} - mode', 'Copy')
 
-    # DRAG options
-    gen.create_quant(f'Port {port} - DRAG base', 'Base port', 'COMBO', group, section)
-    gen.combo_options(*[str(i) for i in range(1, 9) if i != port])
-    gen.visibility(f'Port {port} - mode', 'DRAG')
-
-    # If we copy or use DRAG, add the option for phase shifting
+    # If we copy, add the option for phase shifting
     gen.create_quant(f'Port {port} - phase shift', 'Phase shift', 'DOUBLE', group, section)
     gen.unit('PI rad')
     gen.limits(-2, 2)
-    gen.visibility(f'Port {port} - mode', 'Copy', 'DRAG')
+    gen.visibility(f'Port {port} - mode', 'Copy')
 
     # If we copy, add the option for amplitude shifting
     gen.create_quant(f'Port {port} - amplitude scale shift', 'Amplitude scale shift', 'DOUBLE', group, section)
     gen.limits(-1, 1)
     gen.visibility(f'Port {port} - mode', 'Copy')
-
-    gen.create_quant(f'Port {port} - DRAG scale', 'DRAG scale', 'DOUBLE', group, section)
-    gen.default(1e-9)
-    gen.unit('s')
-    gen.visibility(f'Port {port} - mode', 'DRAG')
-
-    gen.create_quant(f'Port {port} - detuning frequency', 'DRAG detuning frequency', 'DOUBLE', group, section)
-    gen.unit('Hz')
-    gen.limits(low=0)
-    gen.visibility(f'Port {port} - mode', 'DRAG')
 
     # Number of groups to display
     gen.small_comment(f'Number of pulses for port {port}')
@@ -201,18 +186,40 @@ def section_port_sequence(port):
         gen.visibility(f'Pulses for port {port}', *[str(j) for j in range(i, MAX_PULSE_DEFS+1)])
 
         # Choice of sine generator
-        gen.create_quant(f'Port {port} - def {i} - sine generator', 'Sine generator', 'COMBO', group, section)
-        gen.combo_options('1', '2', 'None')
+        gen.create_quant(f'Port {port} - def {i} - sine generator', 'Sine generator (DRAG)', 'COMBO', group, section)
+        gen.combo_options('1', '2', 'DRAG', 'None')
         gen.visibility(f'Pulses for port {port}', *[str(j) for j in range(i, MAX_PULSE_DEFS+1)])
+        gen.tooltip('Choose which sine generator to output this pulse on, or configure DRAG over both. '
+                    'If set to None, the Frequency and Phase parameters will have no effect on this pulse.')
+
+        # DRAG parameters
+        gen.create_quant(f'Port {port} - def {i} - DRAG sibling port', 'DRAG sibling port', 'COMBO', group, section)
+        gen.combo_options(*[str(i) for i in range(1, 9) if i != port])
+        gen.visibility(f'Port {port} - def {i} - sine generator', 'DRAG')
+
+        gen.create_quant(f'Port {port} - def {i} - DRAG phase shift', 'Sibling phase shift', 'DOUBLE', group, section)
+        gen.unit('PI rad')
+        gen.limits(-2, 2)
+        gen.visibility(f'Port {port} - def {i} - sine generator', 'DRAG')
+
+        gen.create_quant(f'Port {port} - def {i} - DRAG scale', 'DRAG scale', 'DOUBLE', group, section)
+        gen.default(1e-9)
+        gen.unit('s')
+        gen.visibility(f'Port {port} - def {i} - sine generator', 'DRAG')
+
+        gen.create_quant(f'Port {port} - def {i} - DRAG detuning frequency', 'DRAG detuning frequency', 'DOUBLE', group, section)
+        gen.unit('Hz')
+        gen.limits(low=0)
+        gen.visibility(f'Port {port} - def {i} - sine generator', 'DRAG')
 
         # Sweep param
         gen.create_quant(f'Port {port} - def {i} - Sweep param', 'Sweepable parameter', 'COMBO', group, section)
         gen.combo_options('None', 'Amplitude scale', 'Carrier frequency', 'Phase')
-        gen.visibility(f'Port {port} - def {i} - sine generator', '1', '2')
+        gen.visibility(f'Port {port} - def {i} - sine generator', '1', '2', 'DRAG', 'None')
 
         # Params: amp
         gen.create_quant(f'Port {port} - def {i} - amp', 'Amplitude scale', 'DOUBLE', group, section)
-        gen.limits(0, 1)
+        gen.limits(-1, 1)
         gen.default(1)
         gen.visibility(f'Port {port} - def {i} - Sweep param', 'None', 'Carrier frequency', 'Phase')
 

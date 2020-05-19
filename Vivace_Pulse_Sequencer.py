@@ -45,6 +45,8 @@ class Driver(LabberDriver):
         self.measurement_period = None
         self.iterations = None
         self.templates = [[[None for _ in range(16)] for _ in range(2)] for _ in range(8)]
+        self.drag_templates = []
+        self.drag_parameters = []
         self.template_defs = None
         self.port_settings = None
         self.pulse_definitions = None
@@ -74,6 +76,8 @@ class Driver(LabberDriver):
         self.measurement_period = None
         self.iterations = None
         self.templates = [[[None for _ in range(16)] for _ in range(2)] for _ in range(8)]
+        self.drag_templates = []
+        self.drag_parameters = []
         self.template_defs = None
         self.port_settings = None
         self.pulse_definitions = None
@@ -302,8 +306,7 @@ class Driver(LabberDriver):
         if 'Rise Points' in template_def:  # Gauss long drive
             duration = template_def['Base'] + template_def['Delta'] * iteration
             rise_p = template_def['Rise Points']
-            n_long_points = int(round((duration - 2 * template_def['Flank Duration'])
-                                      * q.sampling_freq) + 1)
+            n_long_points = int(round((duration - 2 * template_def['Flank Duration']) * q.sampling_freq))
             if n_long_points >= 1e5:
                 raise ValueError('Your long drive template is too long to preview, '
                                  'it would take forever to create a list of >100 000 points!')
@@ -317,7 +320,7 @@ class Driver(LabberDriver):
             duration = template_def['Base'] + template_def['Delta'] * iteration
             if duration <= 0:
                 return [], []
-            n_points = int(round(duration * q.sampling_freq) + 1)
+            n_points = int(round(duration * q.sampling_freq))
             if n_points >= 1e5:
                 raise ValueError('Your long drive template is too long to preview, '
                                  'it would take forever to create a list of >100 000 points!')
@@ -371,9 +374,9 @@ class Driver(LabberDriver):
                     template_def = self.template_defs[template_no - 1]
 
                     # If we have DRAG pulses on this port, get the modified envelopes
-                    if f'DRAG port {pulse_port}' in template_def:
+                    if 'DRAG_idx' in pulse:
                         templ_x, _ = self.template_def_to_points(template_def, preview_iter, q)
-                        templ_y = template_def[f'DRAG port {pulse_port}']
+                        templ_y = self.drag_templates[pulse['DRAG_idx']][1]
                     else:
                         templ_x, templ_y = self.template_def_to_points(template_def, preview_iter, q)
                     if len(templ_y) == 0:
@@ -401,7 +404,7 @@ class Driver(LabberDriver):
                     # Place it in the preview timeline
                     pulse_index = int(time * sampling_freq)
                     points_that_fit = len(preview_points[pulse_index:(pulse_index+len(wave))])
-                    preview_points[pulse_index:(pulse_index + len(wave))] = wave[:points_that_fit]
+                    preview_points[pulse_index:(pulse_index + len(wave))] += wave[:points_that_fit]
 
             # Display the sample windows
             for sample in sample_pulses:
@@ -499,14 +502,14 @@ class Driver(LabberDriver):
         # Sampling
         sample_definitions = self.get_sample_pulses(q)
         self.pulse_definitions.extend(sample_definitions)
+        # Copy pulse definitions on specified ports
+        self.copy_defs(q)
         # Sort our definitions chronologically
         self.pulse_definitions = sorted(self.pulse_definitions,
                                         key=lambda x: x['Time'][0] + x['Time'][1])
         self.validate_pulse_definitions()
         # Get the values that will go in the LUTs
         self.amp_matrix, self.fp_matrix, self.carrier_changes = self.get_LUT_values()
-        # Copy pulse definitions and LUTs on specified ports
-        self.copy_defs(q)
 
     def get_general_settings(self):
         """
@@ -542,7 +545,7 @@ class Driver(LabberDriver):
                 # Other types share a lot of behaviour
                 duration = self.getValue(f'Envelope template {def_idx}: duration')
                 template['Duration'] = duration
-                n_points = int(round(duration * q.sampling_freq)) # todo HERE
+                n_points = int(round(duration * q.sampling_freq))
                 use_padding = self.getValue(f'Envelope template {def_idx}: use zero-padding')
                 template['Points'] = self.get_template_points(template_name, n_points, def_idx)
 
@@ -621,8 +624,8 @@ class Driver(LabberDriver):
                 raise ValueError(f'Input for custom template {idx} does not contain any data!')
             custom_times = custom_template['x']
 
-            # Rescale template to range [0, 1]
-            custom_values = custom_values / max(custom_values)
+            # Rescale template to range [-1, +1]
+            custom_values = custom_values / max(abs(custom_values))
 
             # Fit a curve to the fetched shape, and then set up the template based on this fitted curve
             curve_fit = interp1d(custom_times, custom_values)
@@ -682,18 +685,18 @@ class Driver(LabberDriver):
             settings = self.port_settings[port - 1]
 
             # If no pulses are set up on the port, skip to the next
-            if settings['Mode'] not in ('Define', 'DRAG base'):
+            if settings['Mode'] != 'Define':
                 continue
 
             # Check how many pulses are defined
             n_pulses = int(self.getValue(f'Pulses for port {port}'))
             # Step through all pulse definitions
             for p_def_idx in range(1, n_pulses + 1):
-                pulse_defs = self.create_pulse_defs(port, settings, p_def_idx, q)
+                pulse_defs = self.create_pulse_defs(port, p_def_idx, q)
                 pulse_definitions.extend(pulse_defs)
         return pulse_definitions
 
-    def create_pulse_defs(self, port, port_settings, def_idx, q):
+    def create_pulse_defs(self, port, def_idx, q):
         """
         Create and return a list of pulse definition dictionaries based on a single pulse definition in the instrument.
         If the user has entered multiple start times, one dictionary will be returned for every start time.
@@ -707,8 +710,10 @@ class Driver(LabberDriver):
             Phase: The pulse's phase.
         """
         template_no = int(self.getValue(f'Port {port} - def {def_idx} - template'))
-        carrier = self.get_carrier_index(self.getValue(f'Port {port} - def {def_idx} - carrier channel'))
-        if port_settings['Mode'] == 'Define':
+        carrier = self.get_carrier_index(self.getValue(f'Port {port} - def {def_idx} - sine generator'))
+
+        # Non-DRAG pulses can have their template set up normally
+        if carrier != 3:
             try:
                 self.setup_template(q, port, carrier, template_no)
             except ValueError as err:
@@ -716,29 +721,20 @@ class Driver(LabberDriver):
                     err_msg = f'Pulse definition {def_idx} on port {port} uses an undefined template!'
                     raise ValueError(err_msg)
                 raise err
-        # If the current port is the base for a DRAG pulse
-        else:
-            self.calculate_drag(port, port_settings, template_no, q)
-
-        fixed_amp = True
-        fixed_fp = True
 
         sweep_param = self.getValue(f'Port {port} - def {def_idx} - Sweep param')
         if sweep_param == 'Amplitude scale':
             amp = self.get_sweep_values(port, def_idx)
-            fixed_amp = False
         else:
             amp = self.getValue(f'Port {port} - def {def_idx} - amp')
             amp = [amp] * self.iterations
         if sweep_param == 'Carrier frequency':
             freq = self.get_sweep_values(port, def_idx)
-            fixed_fp = False
         else:
             freq = self.getValue(f'Port {port} - def {def_idx} - freq')
             freq = [freq] * self.iterations
         if sweep_param == 'Phase':
             phase = self.get_sweep_values(port, def_idx)
-            fixed_fp = False
         else:
             phase = self.getValue(f'Port {port} - def {def_idx} - phase')
             phase = [phase] * self.iterations
@@ -785,64 +781,132 @@ class Driver(LabberDriver):
                                  f'at some point. The board can currently only output pulses at '
                                  f'even nanosecond values.')
 
-            # Get a unique pulse def id
-            p_id = self.get_next_pulse_id()
             # Save this pulse definition for later use
-            pulse_defs.append({
-                'ID': p_id,
-                'Time': time,
-                'Port': port,
-                'Carrier': carrier,
-                'Template_no': template_no,
-                'Amp': amp.copy(),
-                'Freq': freq.copy(),
-                'Phase': phase.copy(),
-                'Fixed_amp': fixed_amp,
-                'Fixed_fp': fixed_fp})
+            if carrier != 3:
+                pulse_defs.append({
+                    'ID': self.get_next_pulse_id(),
+                    'Time': time,
+                    'Port': port,
+                    'Carrier': carrier,
+                    'Template_no': template_no,
+                    'Amp': amp.copy(),
+                    'Freq': freq.copy(),
+                    'Phase': phase.copy()})
+
+            # If the pulse is in DRAG mode, we need to calculate some extra parameters
+            else:
+                pulse_defs.extend(self.calculate_drag(
+                    def_idx,
+                    time,
+                    port,
+                    template_no,
+                    amp.copy(),
+                    freq.copy(),
+                    phase.copy(),
+                    q))
+
         return pulse_defs
 
     def get_carrier_index(self, option):
+        if option == 'DRAG':
+            return 3
         if option == 'None':
             return 0
         return int(option)
 
-    def calculate_drag(self, base_port, port_settings, template_no, q):
+    def calculate_drag(self, def_idx, time, port, template_no, amp, freq, phase, q):
         """
-        TODO: rewrite
-        Create a DRAG pulse based on the given envelope on the indicated base port.
-        This will create a new template on both base_port and its sibling port.
-        These new templates will be set up on the board and stored in self.templates.
-        In addition, the envelopes will be added to self.template_defs under the key 'DRAG port X'
+        Creates four DRAG pulses based on a pulse definition set to DRAG mode.
+        This will also result in the creation of four new templates on the board, which will be
+        stored in self.drag_templates, at an index saved in each pulse definition's 'DRAG_idx' key.
+        Returns a list of the four pulse definitions.
         """
-        # We needn't calculate a DRAG pulse if it has already been done
-        if f'DRAG port {base_port}' in self.template_defs[template_no - 1]:
-            return
 
-        sibling_port = port_settings['Sibling']
+        sibling_port = int(self.getValue(f'Port {port} - def {def_idx} - DRAG sibling port'))
         times, points = self.template_def_to_points(self.template_defs[template_no - 1], 0, q)
-        scale = self.getValue(f'Port {sibling_port} - DRAG scale')
-        detuning = self.getValue(f'Port {sibling_port} - detuning frequency')
-        beta = scale / (1 / q.sampling_freq)
+        scale = self.getValue(f'Port {port} - def {def_idx} - DRAG scale')
+        detuning = self.getValue(f'Port {port} - def {def_idx} - DRAG detuning frequency')
+        phase_shift = self.getValue(f'Port {port} - def {def_idx} - DRAG phase shift')
 
-        # The envelope should exist in both the real and imag components
-        complex_points = points + 1j * points
-        # Add the original envelope's gradient (scaled) as a complex part
-        complex_points = complex_points + 1j * beta * np.gradient(complex_points)
-        complex_points = complex_points * np.exp(1j * 2 * np.pi * detuning * times)
-        re_points = np.real(complex_points)
-        im_points = np.imag(complex_points)
+        if (template_no, scale, detuning) not in self.drag_parameters:
 
-        # Set up both templates on the board and store them
-        self.add_debug_line(f'q.setup_template({base_port}, {re_points}, True, True)')
-        re_template = q.setup_template(base_port, re_points, 1, True)
-        self.add_debug_line(f'q.setup_template({sibling_port}, {im_points}, True, True)')
-        im_template = q.setup_template(sibling_port, im_points, 1, True)
-        self.templates[base_port - 1][template_no - 1] = re_template
-        self.templates[sibling_port - 1][template_no - 1] = im_template
+            beta = scale * q.sampling_freq
 
-        # Also update the definition to include the modified templates
-        self.template_defs[template_no - 1][f'DRAG port {base_port}'] = re_points
-        self.template_defs[template_no - 1][f'DRAG port {sibling_port}'] = im_points
+            # Add the original envelope's gradient (scaled) as a complex part
+            complex_points = points + 1j * beta * np.gradient(points)
+            complex_points = complex_points * np.exp(1j * 2 * np.pi * detuning * times)
+            re_points = np.real(complex_points)
+            im_points = np.imag(complex_points)
+
+            # Rescale points to be within [-0.5, +0.5]
+            biggest_outlier = 2 * max(max(abs(re_points)), max(abs(im_points)))
+            re_points = re_points / biggest_outlier
+            im_points = im_points / biggest_outlier
+
+            # Set up both templates on the board and store them
+            self.add_debug_line(f'q.setup_template({port}, {re_points}, 1, True)')
+            self.add_debug_line(f'q.setup_template({port}, {im_points}, 2, True)')
+            self.add_debug_line(f'q.setup_template({sibling_port}, {re_points}, 1, True)')
+            self.add_debug_line(f'q.setup_template({sibling_port}, {im_points}, 2, True)')
+            base_re_template = q.setup_template(port, re_points, 1, True)
+            base_im_template = q.setup_template(port, im_points, 2, True)
+            sibl_re_template = q.setup_template(sibling_port, re_points, 1, True)
+            sibl_im_template = q.setup_template(sibling_port, im_points, 2, True)
+            self.drag_templates.append((base_re_template, re_points))
+            base_re_idx = len(self.drag_templates) - 1
+            self.drag_templates.append((base_im_template, im_points))
+            base_im_idx = len(self.drag_templates) - 1
+            self.drag_templates.append((sibl_re_template, re_points))
+            sibl_re_idx = len(self.drag_templates) - 1
+            self.drag_templates.append((sibl_im_template, im_points))
+            sibl_im_idx = len(self.drag_templates) - 1
+
+        # We've already made the necessary templates, find their index
+        else:
+            match_idx = self.drag_parameters.index((template_no, scale, detuning))
+
+            base_re_idx = match_idx * 4 + 0
+            base_im_idx = match_idx * 4 + 1
+            sibl_re_idx = match_idx * 4 + 2
+            sibl_im_idx = match_idx * 4 + 3
+
+        # Create four pulse defs
+        pulse_defs = []
+        for i in range(4):
+            d_port = port if i in (0, 1) else sibling_port
+            d_carrier = 1 if i in (0, 2) else 2
+
+            # Phase offset and template index is different between every definition
+            if i == 0:
+                d_idx = base_re_idx
+                # Cosine, so we need to shift our sine by pi/2
+                d_phase = [p + 1/2 for p in phase.copy()]
+            elif i == 1:
+                d_idx = base_im_idx
+                # Negative cosine with pi/2 offset, so 2pi = 0 in total
+                d_phase = phase.copy()
+            elif i == 2:
+                d_idx = sibl_re_idx
+                # Sine without offset
+                d_phase = [p + phase_shift for p in phase.copy()]
+            else:
+                d_idx = sibl_im_idx
+                # Negative sine with pi/2 offset, so 3/2pi in total
+                d_phase = [p + phase_shift + 3/2 for p in phase.copy()]
+
+            pulse_defs.append({
+                'ID': self.get_next_pulse_id(),
+                'Time': time,
+                'Port': d_port,
+                'Carrier': d_carrier,
+                'Template_no': template_no,
+                'DRAG_idx': d_idx,
+                'Amp': amp.copy(),
+                'Freq': freq.copy(),
+                'Phase': d_phase}
+            )
+
+        return pulse_defs
 
     def setup_template(self, q, port, carrier, template_no):
         """
@@ -874,7 +938,7 @@ class Driver(LabberDriver):
                                                            use_scale=True)
                     except ValueError as err:
                         if err.args[0].startswith('valid carriers'):
-                            raise ValueError('Long drive envelopes have to be on either carrier channel 1 or 2!')
+                            raise ValueError('Long drive envelopes have to be on either sine generator 1 or 2!')
                     if 'Flank Duration' in template_def:
                         self.templates[port - 1][carrier - 1][template_no - 1] = (rise_template, long_template, fall_template)
                     else:
@@ -978,9 +1042,10 @@ class Driver(LabberDriver):
             prev_start = -1
             prev_duration = 0
             prev_carrier = -1
+            prev_amp = 0
             for it in range(self.iterations):
                 for pulse in [p for p in self.pulse_definitions if 'Sample' not in p]:
-                    error = False
+                    overlap_error = False
                     if pulse['Port'] != p+1:
                         continue
                     start = pulse['Time']
@@ -988,13 +1053,18 @@ class Driver(LabberDriver):
                     temp_def = self.template_defs[pulse['Template_no']-1]
                     curr_duration = self.get_tempdef_duration(temp_def, it)
                     curr_carrier = pulse['Carrier']
+                    curr_amp = pulse['Amp'][it]
                     if curr_start == prev_start:
+                        if 'DRAG_idx' not in pulse and abs(curr_amp + prev_amp) > 1:
+                            raise ValueError(f'The combined amplitude of the overlapping pulses at time '
+                                             f'{start[0] + start[1]*it} on port {p + 1} exceeds 1 or -1!')
+
                         if (curr_carrier == prev_carrier or
                                 curr_duration != prev_duration):
-                            error = True
+                            overlap_error = True
                     elif curr_start - (prev_start+prev_duration) < -1e-9:
-                        error = True
-                    if error:
+                        overlap_error = True
+                    if overlap_error:
                         raise ValueError(f"Two pulses overlap incorrectly at time {start[0] + start[1]*it} "
                                          f"on port {p + 1} during iteration {it+1}! "
                                          f"Overlapping pulses must use different carrier generators and "
@@ -1002,6 +1072,7 @@ class Driver(LabberDriver):
                     prev_carrier = curr_carrier
                     prev_start = curr_start
                     prev_duration = curr_duration
+                    prev_amp = curr_amp
 
     def get_tempdef_duration(self, tempdef, iteration):
         if 'Base' in tempdef:  # Long drive
@@ -1062,8 +1133,8 @@ class Driver(LabberDriver):
                 iteration_start = prev_start
 
                 for pulse in timeline:
-                    # Get some necessary parameters from the pulse's definition. Since we need to continuously
-                    # update phase, make a copy.
+                    # Get some necessary parameters from the pulse's definition.
+                    # Since we need to continuously update phase, make a copy.
                     p_amp, p_freq, p_phase = self.get_amp_freq_phase(pulse, i)
 
                     if p_amp not in amp_values[port_idx]:
@@ -1167,13 +1238,12 @@ class Driver(LabberDriver):
         """
         For each port that is set to copy from another port, create pulse definitions
         on that port based on the target port's definitions.
-        Copy LUTs in the same manner, but perform phase/amplitude shift on them.
         """
         # Identify which ports are in copy mode
         for p, settings in enumerate(self.port_settings):
             port = p + 1
             mode = settings['Mode']
-            if mode not in ('Copy', 'DRAG'):
+            if mode != 'Copy':
                 # Port is not in copy mode
                 continue
 
@@ -1183,30 +1253,17 @@ class Driver(LabberDriver):
                 raise ValueError(f'Output port {port} is set to copy from port {target}, '
                                  f'which is either undefined or a copy!')
 
-            # Copy amplitude LUT, with an optional amp shift
-            amp_shift = 0.0
-            if mode == 'Copy':
-                amp_shift = self.getValue(f'Port {port} - amplitude scale shift')
-            self.amp_matrix[port - 1] = [amp + amp_shift for amp in self.amp_matrix[target - 1]]
-
-            # Phase values need to be adjusted by phase shift
+            amp_shift = self.getValue(f'Port {port} - amplitude scale shift')
             phase_shift = self.getValue(f'Port {port} - phase shift')
-            for carrier in range(2):
-                for pair in self.fp_matrix[target - 1][carrier]:
-                    new_pair = (pair[0], pair[1] + phase_shift)
-                    self.fp_matrix[port - 1][carrier].append(new_pair)
-            # Copy carrier change list, with phase shift.
-            for (time, fp1, fp2) in self.carrier_changes[target-1]:
-                self.carrier_changes[port-1].append((time,
-                                                     (fp1[0], fp1[1] + phase_shift),
-                                                     (fp2[0], fp2[1] + phase_shift)))
 
             # Copy pulse defs
             idx = 0
             while idx < len(self.pulse_definitions):
                 pulse = self.pulse_definitions[idx]
                 # Sample pulse definitions do not have a Port value, so they should be ignored
-                if 'Sample' not in pulse and pulse['Port'] == target:
+                if ('Sample' not in pulse
+                        and pulse['Port'] == target
+                        and 'DRAG_idx' not in pulse):
                     # Copy every pulse, but update the output port and apply shifts.
                     p_copy = pulse.copy()
                     p_copy['ID'] = self.get_next_pulse_id()
@@ -1308,7 +1365,7 @@ class Driver(LabberDriver):
         """
         Called from setup_sequence. This function handles all the setup of a single pulse definition.
         Returns latest_output, which is the time at which this pulse ends (unless it is a sample pulse,
-        in which case the given latest outputis returned)
+        in which case the given latest output is returned)
         """
         if 'Sample' in pulse:
             start_base, start_delta = pulse['Time']
@@ -1319,7 +1376,13 @@ class Driver(LabberDriver):
             carrier = pulse['Carrier']
             template_no = pulse['Template_no']
             template_def = self.template_defs[template_no - 1]
-            template = self.templates[port - 1][carrier - 1][template_no - 1]
+
+            # DRAG pulses have their templates stored in a special way
+            if 'DRAG_idx' in pulse:
+                template = self.drag_templates[pulse['DRAG_idx']][0]
+            else:
+                template = self.templates[port - 1][carrier - 1][template_no - 1]
+
             # Check if template is a long drive. If so, we might need to update its duration
             if 'Base' in template_def:
                 (dur_base, dur_delta) = template_def['Base'], template_def['Delta']
