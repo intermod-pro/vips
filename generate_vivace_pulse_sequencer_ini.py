@@ -155,6 +155,13 @@ def section_port_sequence(port):
     gen.limits(-1, 1)
     gen.visibility(f'Port {port} - mode', 'Copy')
 
+    # DC shift
+    gen.create_quant(f'Port {port} - DC bias', 'DC bias', 'DOUBLE', group, section)
+    gen.limits(-0.05, 0.05)
+    gen.unit('V')
+    gen.tooltip('Range -50mV to +50mV')
+    gen.visibility(f'Port {port} - mode', 'Copy', 'Define')
+
     # Number of groups to display
     gen.small_comment(f'Number of pulses for port {port}')
     gen.create_quant(f'Pulses for port {port}', 'Number of unique pulses', 'COMBO', group, section)

@@ -497,6 +497,8 @@ class Driver(LabberDriver):
         self.template_defs = self.get_template_defs(q)
         # Port settings
         self.port_settings = self.get_port_settings()
+        # Set DC biases for all ports
+        self.set_dc_biases(q)
         # Pulse definitions
         self.pulse_definitions = self.get_all_pulse_defs(q)
         # Sampling
@@ -637,11 +639,8 @@ class Driver(LabberDriver):
         """
         Get each port's settings.
         Port settings are represented by an array with 8 dictionaries, each representing a single port's settings.
-            The 'Mode' key contains the port's mode (Define, Disabled, Copy, DRAG, DRAG base)
-            The 'Sibling' key contains the number of a port that is somehow involved with this one.
-                If the port is in copy mode, this value will be the number of the port that is copied.
-                If the port is in DRAG mode, this value will be the number of the port used as the DRAG base.
-                If the port is in DRAG base mode, this value will be the number of the port containing its gradient.
+            The 'Mode' key contains the port's mode (Define, Disabled, Copy)
+            If a port is in copy mode, also save the port it is copying from in a 'Sibling' key.
         Return a list of these dictionaries.
         """
         port_settings = [{} for _ in range(8)]
@@ -650,27 +649,17 @@ class Driver(LabberDriver):
         for port in range(1, 9):
             p = port - 1
             mode = self.getValue(f'Port {port} - mode')
-            if port_settings[p] == {}:
-                port_settings[p]['Mode'] = mode
-
+            port_settings[p]['Mode'] = mode
             if mode == 'Copy':
                 port_settings[p]['Sibling'] = int(self.getValue(f'Port {port} - copy sequence from'))
-            elif mode == 'DRAG':
-                # Only ports with defined pulses can be DRAG bases
-                drag_base = int(self.getValue(f'Port {port} - DRAG base'))
-                if not self.getValue(f'Port {drag_base} - mode') in ('Define', 'DRAG base'):
-                    raise ValueError(f'Port {port} is set to use port {drag_base} as a DRAG base, but '
-                                     f'port {drag_base} does not have any pulses defined on it!')
-                if port_settings[drag_base - 1]['Mode'] == 'DRAG base':
-                    raise ValueError(f'Port {port} is set to use port {drag_base} as a DRAG base, but '
-                                     f'port {drag_base} is already used as a DRAG base by port '
-                                     f'{port_settings[drag_base - 1]["Sibling"]}!')
-
-                port_settings[p]['Sibling'] = drag_base
-                port_settings[drag_base - 1]['Mode'] = 'DRAG base'
-                port_settings[drag_base - 1]['Sibling'] = port
 
         return port_settings
+
+    def set_dc_biases(self, q):
+        for port in range(1, 9):
+            bias = self.getValue(f'Port {port} - DC bias')
+            bias = bias / 1.25
+            q._rflockin.set_bias_dac(port, bias)
 
     def get_all_pulse_defs(self, q):
         """
@@ -1249,7 +1238,7 @@ class Driver(LabberDriver):
 
             target = settings['Sibling']
             # Only copy from ports that have pulses defined to them
-            if not self.getValue(f'Port {target} - mode') in ('Define', 'DRAG base'):
+            if not self.getValue(f'Port {target} - mode') == 'Define':
                 raise ValueError(f'Output port {port} is set to copy from port {target}, '
                                  f'which is either undefined or a copy!')
 
