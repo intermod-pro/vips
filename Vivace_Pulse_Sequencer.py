@@ -183,10 +183,20 @@ class Driver(LabberDriver):
         if isinstance(value, dict):
             if len(current_value['y']) != len(value['y']):
                 return True
-            # If the vectors are of the same length, we need to run an elementwise comparison
-            if not (np.allclose(current_value['y'], value['y'])
-                    and np.allclose(current_value['x'], value['x'])):
+            # If the vectors are of the same length and use plain time axes, we need to run an elementwise comparison
+            if 'x' in current_value and 'x' in value:
+                if not (np.allclose(current_value['y'], value['y'])
+                        and np.allclose(current_value['x'], value['x'])):
+                    return True
+            # If the new vector is not in the same format, it counts as changed
+            elif 'x' in current_value or 'x' in value:
                 return True
+            # The vectors are in base-delta time format, compare these values along with y values
+            else:
+                if not (np.allclose(current_value['y'], value['y'])
+                        and np.isclose(current_value['t0'], value['t0'])
+                        and np.isclose(current_value['dt'], value['dt'])):
+                    return True
         # Use a little leniency when checking floats due to rounding errors in python
         elif isinstance(value, float):
             if not math.isclose(current_value, value):
@@ -277,7 +287,8 @@ class Driver(LabberDriver):
                 dummy_y = np.empty(n_points * 2)
                 dummy_y[0::2] = high_low
                 dummy_y[1::2] = low_high
-                return quant.getTraceDict(dummy_y, x=np.linspace(-1, 1, n_points * 2))
+                times = np.linspace(-1, 1, n_points * 2)
+                return quant.getTraceDict(dummy_y, x=times, t0=times[0], dt=(times[1] - times[0]))
         if quant.get_cmd == 'template_preview':
             return self.get_template_preview(quant)
         if quant.name == 'Pulse sequence preview':
@@ -296,7 +307,7 @@ class Driver(LabberDriver):
             template_no = int(quant.name.split()[1][0])
             template_def = template_defs[template_no - 1]
             x, y = self.template_def_to_points(template_def, 0, q)
-            return quant.getTraceDict(y, x=x)
+            return quant.getTraceDict(y, x=x, t0=x[0], dt=(x[1] - x[0]))
 
     def template_def_to_points(self, template_def, iteration, q):
         """
@@ -428,7 +439,7 @@ class Driver(LabberDriver):
         else:
             times = np.linspace(0, period, len(preview_points))
 
-        return quant.getTraceDict(preview_points, x=times)
+        return quant.getTraceDict(preview_points, x=times, t0=times[0], dt=(times[1] - times[0]))
 
     def get_trace(self, quant):
         """
@@ -459,7 +470,8 @@ class Driver(LabberDriver):
             return None
 
         measurement = self.results[window_idx][output_idx]
-        return quant.getTraceDict(measurement, x=self.time_array)
+        return quant.getTraceDict(measurement, x=self.time_array, t0=self.time_array[0],
+                                  dt=(self.time_array[1] - self.time_array[0]))
 
     def perform_measurement(self):
         """
@@ -624,7 +636,12 @@ class Driver(LabberDriver):
             custom_values = custom_template['y']
             if len(custom_values) == 0:
                 raise ValueError(f'Input for custom template {idx} does not contain any data!')
-            custom_times = custom_template['x']
+            if 'x' in custom_template:
+                custom_times = custom_template['x']
+            else:
+                custom_times = np.linspace(custom_template['t0'],
+                                           len(custom_values)*custom_template['dt']+custom_template['t0'],
+                                           len(custom_values))
 
             # Rescale template to range [-1, +1]
             custom_values = custom_values / max(abs(custom_values))
@@ -656,10 +673,11 @@ class Driver(LabberDriver):
         return port_settings
 
     def set_dc_biases(self, q):
-        for port in range(1, 9):
-            bias = self.getValue(f'Port {port} - DC bias')
-            bias = bias / 1.25
-            q._rflockin.set_bias_dac(port, bias)
+        if not self.DRY_RUN:
+            for port in range(1, 9):
+                bias = self.getValue(f'Port {port} - DC bias')
+                bias = bias / 1.25
+                q._rflockin.set_bias_dac(port, bias)
 
     def get_all_pulse_defs(self, q):
         """
