@@ -491,7 +491,7 @@ class Driver(LabberDriver):
             total_time = self.measurement_period * (self.iterations + 1)
             self.add_debug_line('q.perform_measurement()')
             output = q.perform_measurement(total_time, 1, self.averages)
-            if not self.DRY_RUN:
+            if not q.dry_run:
                 # Store the results
                 (t_array, result) = output
                 self.time_array = list(t_array)
@@ -673,11 +673,13 @@ class Driver(LabberDriver):
         return port_settings
 
     def set_dc_biases(self, q):
-        if not self.DRY_RUN:
+        if not q.dry_run:
             for port in range(1, 9):
                 bias = self.getValue(f'Port {port} - DC bias')
                 bias = bias / 1.25
-                q._rflockin.set_bias_dac(port, bias)
+                self.add_debug_line(f'q._rflockin.set_bias_dac(port={port}, bias={bias})')
+                # TODO this is temporary
+                #q._rflockin.set_bias_dac(port, bias)
 
     def get_all_pulse_defs(self, q):
         """
@@ -851,10 +853,10 @@ class Driver(LabberDriver):
             im_points = im_points / biggest_outlier
 
             # Set up both templates on the board and store them
-            self.add_debug_line(f'q.setup_template({port}, {re_points}, 1, True)')
-            self.add_debug_line(f'q.setup_template({port}, {im_points}, 2, True)')
-            self.add_debug_line(f'q.setup_template({sibling_port}, {re_points}, 1, True)')
-            self.add_debug_line(f'q.setup_template({sibling_port}, {im_points}, 2, True)')
+            self.add_debug_line(f'q.setup_template(port={port}, points={re_points}, carrier=1, use_scale=True)')
+            self.add_debug_line(f'q.setup_template(port={port}, points={im_points}, carrier=2, use_scale=True)')
+            self.add_debug_line(f'q.setup_template(port={sibling_port}, points={re_points}, carrier=1, use_scale=True)')
+            self.add_debug_line(f'q.setup_template(port={sibling_port}, points={im_points}, carrier=2, use_scale=True)')
             base_re_template = q.setup_template(port, re_points, 1, True)
             base_im_template = q.setup_template(port, im_points, 2, True)
             sibl_re_template = q.setup_template(sibling_port, re_points, 1, True)
@@ -933,11 +935,11 @@ class Driver(LabberDriver):
                     # Set up gaussian rise and fall templates if defined.
                     if 'Flank Duration' in template_def:
                         initial_length -= 2 * template_def['Flank Duration']
-                        self.add_debug_line(f'q.setup_template({port}, {template_def["Rise Points"]}, {carrier}, use_scale=True)')
+                        self.add_debug_line(f'q.setup_template(port={port}, points={template_def["Rise Points"]}, carrier={carrier}, use_scale=True)')
                         rise_template = q.setup_template(port, template_def['Rise Points'], carrier, use_scale=True)
-                        self.add_debug_line(f'q.setup_template({port}, {template_def["Fall Points"]}, {carrier}, use_scale=True)')
+                        self.add_debug_line(f'q.setup_template(port={port}, points={template_def["Fall Points"]}, carrier={carrier}, use_scale=True)')
                         fall_template = q.setup_template(port, template_def['Fall Points'], carrier, use_scale=True)
-                    self.add_debug_line(f'q.setup_long_drive({port}, {carrier}, {initial_length}, use_scale=True)')
+                    self.add_debug_line(f'q.setup_long_drive(port={port}, carrier={carrier}, duration={initial_length}, use_scale=True)')
                     try:
                         long_template = q.setup_long_drive(port,
                                                            carrier,
@@ -951,7 +953,7 @@ class Driver(LabberDriver):
                     else:
                         self.templates[port - 1][carrier - 1][template_no - 1] = long_template
                 else:
-                    self.add_debug_line(f'q.setup_template({port}, {template_def["Points"]}, {carrier}, use_scale=True)')
+                    self.add_debug_line(f'q.setup_template(port={port}, points={template_def["Points"]}, carrier={carrier}, use_scale=True)')
                     self.templates[port - 1][carrier - 1][template_no - 1] = q.setup_template(port,
                                                                                  template_def['Points'],
                                                                                  carrier,
@@ -1313,7 +1315,7 @@ class Driver(LabberDriver):
                     phase_values.append(phase * np.pi)
                 # Feed our values into the tables
                 if len(freq_values) > 0 and len(phase_values) > 0:
-                    self.add_debug_line(f'q.setup_freq_lut({port}, {c+1}, {freq_values}, {phase_values})')
+                    self.add_debug_line(f'q.setup_freq_lut(port={port}, carrier={c+1}, freq={freq_values}, phase={phase_values})')
                     try:
                         q.setup_freq_lut(port, c+1, freq_values, phase_values)
                     except ValueError as err:
@@ -1327,7 +1329,7 @@ class Driver(LabberDriver):
                                              f'frequency/phase values on port {port}!')
                         raise err
             if len(self.amp_matrix[p]) > 0:
-                self.add_debug_line(f'q.setup_scale_lut({port}, {self.amp_matrix[p]})')
+                self.add_debug_line(f'q.setup_scale_lut(port={port}, amp={self.amp_matrix[p]})')
                 try:
                     q.setup_scale_lut(port, self.amp_matrix[p])
                 except ValueError as err:
@@ -1348,7 +1350,7 @@ class Driver(LabberDriver):
         # The time at which the latest emitted pulse ended, for each port
         # Used to determine when to step in the LUTs, to ensure that all parameters are ready
         # before outputting the next pulse
-        latest_output = [1e-6] * 8
+        latest_output = [0] * 8
         self.setup_carriers(q)
         for i in range(self.iterations):
             self.add_debug_line(f'-- Iteration {i} --')
@@ -1363,9 +1365,10 @@ class Driver(LabberDriver):
                 # If not at the last change, calculate how long we can output until the next change
                 if i != len(port_changes) - 1:
                     duration = port_changes[i+1][0] - t - 2e-9
+                # The last carrier of the last iteration can run until the iteration's end
                 else:
-                    duration = self.measurement_period - t - 2e-9
-                self.add_debug_line(f"q.output_carrier({t}, {duration}, {p+1})")
+                    duration = (self.measurement_period * self.iterations) - t - 2e-9
+                self.add_debug_line(f"q.output_carrier(time={t}, duration={duration}, port={p+1})")
                 q.output_carrier(t, duration, p+1)
 
     def setup_pulse(self, iteration, latest_output, pulse, q):
@@ -1376,7 +1379,7 @@ class Driver(LabberDriver):
         """
         if 'Sample' in pulse:
             start_base, start_delta = pulse['Time']
-            self.add_debug_line(f'q.store({self.get_absolute_time(start_base, start_delta, iteration)})')
+            self.add_debug_line(f'q.store(time={self.get_absolute_time(start_base, start_delta, iteration)})')
             q.store(self.get_absolute_time(start_base, start_delta, iteration))
         else:
             port = pulse['Port']
@@ -1451,18 +1454,18 @@ class Driver(LabberDriver):
             flank_duration = template_def['Flank Duration']
             # Rise
             rise_template = template[0]
-            self.add_debug_line(f'q.output_pulse({time}, {[rise_template]})')
+            self.add_debug_line(f'q.output_pulse(time={time}, template={[rise_template]})')
             q.output_pulse(time, [rise_template])
             # Long
             long_template = template[1]
-            self.add_debug_line(f'q.output_pulse({time + flank_duration}, {[long_template]})')
+            self.add_debug_line(f'q.output_pulse(time={time + flank_duration}, template={[long_template]})')
             q.output_pulse(time + flank_duration, [long_template])
             # Fall
             fall_template = template[2]
-            self.add_debug_line(f'q.output_pulse({time + (duration - flank_duration)}, {[fall_template]})')
+            self.add_debug_line(f'q.output_pulse(time={time + (duration - flank_duration)}, template={[fall_template]})')
             q.output_pulse(time + (duration - flank_duration), [fall_template])
         else:
-            self.add_debug_line(f'q.output_pulse({time}, {[template]})')
+            self.add_debug_line(f'q.output_pulse(time={time}, template={[template]})')
             q.output_pulse(time, [template])
 
     def get_absolute_time(self, base, delta, iteration):
@@ -1486,7 +1489,7 @@ class Driver(LabberDriver):
         # Find index of desired value
         for i, a in enumerate(self.amp_matrix[p]):
             if math.isclose(a, amp):
-                self.add_debug_line(f"q.select_scale({time}, {i}, {port})")
+                self.add_debug_line(f"q.select_scale(time={time}, idx={i}, port={port})")
                 q.select_scale(time, i, port)
 
     def go_to_fp(self, q, time, port, fp1fp2):
@@ -1498,7 +1501,7 @@ class Driver(LabberDriver):
 
         for i, fpfp in enumerate(self.fp_matrix[p]):
             if self.are_fp_pairs_close(fp1fp2, fpfp):
-                self.add_debug_line(f"q.select_frequency({time}, {i}, {port})")
+                self.add_debug_line(f"q.select_frequency(time={time}, idx={i}, port={port})")
                 q.select_frequency(time, i, port)
 
 # ▗▞▚▞▚▞▚▞▚▞▚▞▚▞▚▞▚▞▚▞▚▖ DEBUG ▗▞▚▞▚▞▚▞▚▞▚▞▚▞▚▞▚▞▚▞▚▖
