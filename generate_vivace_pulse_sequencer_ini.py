@@ -4,6 +4,7 @@ import ini_generator as generator
 
 gen = generator.Generator()
 FILENAME = 'Vivace_Pulse_Sequencer.ini'
+N_PORTS = 8
 MAX_TEMPLATES = 15
 CUSTOM_TEMPLATES = 4
 MAX_PULSE_DEFS = 16
@@ -141,7 +142,7 @@ def section_port_sequence(port):
     gen.combo_options('Disabled', 'Define', 'Copy')
 
     gen.create_quant(f'Port {port} - copy sequence from', 'Copy from port', 'COMBO', group, section)
-    gen.combo_options(*[str(i) for i in range(1, 9) if i != port])
+    gen.combo_options(*[str(i) for i in range(1, N_PORTS+1) if i != port])
     gen.visibility(f'Port {port} - mode', 'Copy')
 
     # If we copy, add the option for phase shifting
@@ -152,7 +153,7 @@ def section_port_sequence(port):
 
     # If we copy, add the option for amplitude shifting
     gen.create_quant(f'Port {port} - amplitude scale shift', 'Amplitude scale shift', 'DOUBLE', group, section)
-    gen.limits(-1, 1)
+    gen.limits(-2, 2)
     gen.visibility(f'Port {port} - mode', 'Copy')
 
     # DC shift
@@ -201,7 +202,7 @@ def section_port_sequence(port):
 
         # DRAG parameters
         gen.create_quant(f'Port {port} - def {i} - DRAG sibling port', 'DRAG sibling port', 'COMBO', group, section)
-        gen.combo_options(*[str(i) for i in range(1, 9) if i != port])
+        gen.combo_options(*[str(i) for i in range(1, N_PORTS+1) if i != port])
         gen.visibility(f'Port {port} - def {i} - sine generator', 'DRAG')
 
         gen.create_quant(f'Port {port} - def {i} - DRAG phase shift', 'Sibling phase shift', 'DOUBLE', group, section)
@@ -284,11 +285,11 @@ def section_sample():
 
     group = 'Port selection'
     # Port selection
-    for i in range(1, 9):
+    for i in range(1, N_PORTS+1):
         gen.create_quant(f'Sampling on port {i}', f'Port {i}', 'BOOLEAN', group, section)
 
     # Result values (readonly vectors, so they aren't visible)
-    for i in range(1, 9):
+    for i in range(1, N_PORTS+1):
         gen.create_quant(f'Port {i}: Time trace', '', 'VECTOR', group, section)
         gen.get_cmd('get_result')
         gen.add_line('x_unit: s')
@@ -313,7 +314,7 @@ def section_preview():
     group = 'Settings'
 
     gen.create_quant('Preview port', 'Preview sequence on port', 'COMBO', group, section)
-    gen.combo_options(*[i for i in range(1, 9)])
+    gen.combo_options(*[i for i in range(1, N_PORTS+1)])
 
     gen.create_quant('Preview iteration', 'Preview iteration', 'DOUBLE', group, section)
     gen.default(1)
@@ -336,7 +337,7 @@ def section_preview():
 
     gen.create_quant('Preview sample windows', 'Preview sample windows', 'BOOLEAN', group, section)
     gen.tooltip('This will display sample windows as flat lines at y=-0.1. '
-                'Pulses that overlap with these sample windows will be hidden.')
+                'Output pulses that overlap with these sample windows will be hidden.')
 
     gen.create_quant('Pulse sequence preview', '', 'VECTOR', group, section)
     gen.permission('READ')
@@ -352,7 +353,7 @@ section_templates()
 gen.big_comment('SWEEPABLE PULSE (and more...)')
 section_general()
 
-for p in range(1, 9):
+for p in range(1, N_PORTS+1):
     gen.big_comment(f'Pulse definitions - Port {p}')
     section_port_sequence(p)
 

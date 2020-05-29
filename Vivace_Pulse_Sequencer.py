@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import re
 import math
+import time
 
 import numpy as np
 from scipy.stats import norm
@@ -67,6 +68,7 @@ class Driver(LabberDriver):
         self.previously_outputted_trace_configs = []
 
         self.debug_contents = ''
+        self.INITIAL_TIME = None
 
     def reset_instrument(self):
         """
@@ -97,6 +99,7 @@ class Driver(LabberDriver):
         self.previously_outputted_trace_configs = []
 
         self.debug_contents = ''
+        self.INITIAL_TIME = None
 
     def get_next_pulse_id(self):
         self.pulse_id_counter += 1
@@ -396,16 +399,16 @@ class Driver(LabberDriver):
                     # Get other relevant parameters
                     start_base, start_delta = pulse['Time']
                     time = start_base + start_delta * preview_iter
+                    abs_time = self.get_absolute_time(start_base, start_delta, preview_iter)
                     p_amp, p_freq, p_phase = self.get_amp_freq_phase(pulse, preview_iter)
 
                     # Calculate phase relative to latest carrier reset.
                     reset_time = -1
                     for (t, _, _) in self.carrier_changes[pulse_port-1]:
-                        if t > time:
+                        if t > abs_time:
                             break
                         reset_time = t
-                    p_phase = self.phase_sync(p_freq, p_phase, time - reset_time)
-
+                    p_phase = self.phase_sync(p_freq, p_phase, abs_time - reset_time)
                     # Construct the pulse
                     if p_freq != 0 and pulse['Carrier'] != 0:
                         carrier = np.sin(2*np.pi * p_freq * templ_x + np.pi*p_phase)
@@ -678,8 +681,7 @@ class Driver(LabberDriver):
                 bias = self.getValue(f'Port {port} - DC bias')
                 bias = bias / 1.25
                 self.add_debug_line(f'q._rflockin.set_bias_dac(port={port}, bias={bias})')
-                # TODO this is temporary
-                #q._rflockin.set_bias_dac(port, bias)
+                q._rflockin.set_bias_dac(port, bias)
 
     def get_all_pulse_defs(self, q):
         """
@@ -1120,7 +1122,8 @@ class Driver(LabberDriver):
 
             latest_fp1 = None
             latest_fp2 = None
-            prev_start = 0
+            latest_change = None
+            reference_times = {}
 
             # Step through each iteration to put together the LUTs in the order the values will be needed.
             for i in range(self.iterations):
@@ -1131,31 +1134,46 @@ class Driver(LabberDriver):
                         latest_fp2 = (0, 0)
                     if latest_fp1 is None:
                         latest_fp1 = (0, 0)
-                    carrier_changes.append((prev_start,
+                    carrier_changes.append((latest_change,
                                             (latest_fp1[0], latest_fp1[1]),
                                             (latest_fp2[0], latest_fp2[1])))
 
                 # Reset for the new iteration
                 latest_fp1 = None
                 latest_fp2 = None
-                prev_start = self.get_absolute_time(0, 0, i)
-                iteration_start = prev_start
+                # The first carrier change will happen at the first pulse
+                first_pulse_start = timeline[0]['Time']
+                latest_change = self.get_absolute_time(first_pulse_start[0], first_pulse_start[1], i)
+                reference_times = {}
 
                 for pulse in timeline:
                     # Get some necessary parameters from the pulse's definition.
-                    # Since we need to continuously update phase, make a copy.
                     p_amp, p_freq, p_phase = self.get_amp_freq_phase(pulse, i)
+                    time = pulse['Time']
+                    abs_time = self.get_absolute_time(time[0], time[1], i)
 
+                    # Save the amplitude value if it is new
                     if p_amp not in amp_values[port_idx]:
                         amp_values[port_idx].append(p_amp)
+
                     # If the pulse isn't using a carrier wave, it won't use LUT values
                     carrier = pulse['Carrier']
                     if carrier == 0:
                         continue
-                    elif carrier == 1:
+
+                    if p_freq in reference_times:
+                        ref_start = reference_times[p_freq]
+                    else:
+                        reference_times[p_freq] = abs_time
+                        ref_start = abs_time
+
+                    if carrier == 1:
                         # If we have a free slot for carrier 1, save it and move on
                         if latest_fp1 is None:
-                            ph = self.phase_sync(p_freq, p_phase, prev_start - iteration_start)
+                            # Calculate the phase difference between this pulse and the start of the carrier change
+                            carr_change_ps = ((abs_time - latest_change) * p_freq * 2)
+                            # Phase sync to the reference point, then subtract the potential "double generator" offset
+                            ph = self.phase_sync(p_freq, p_phase, abs_time - ref_start) - carr_change_ps
                             for pul in self.pulse_definitions:
                                 if pul['ID'] == pulse['ID']:
                                     pul['Phase'][i] = ph
@@ -1170,15 +1188,14 @@ class Driver(LabberDriver):
                             # If we never found any pulses for carrier 2 before we needed a swap, use dummy values
                             if latest_fp2 is None:
                                 latest_fp2 = (0, 0)
-                            carrier_changes.append((prev_start,
+                            carrier_changes.append((latest_change,
                                                     (latest_fp1[0], latest_fp1[1]),
                                                     (latest_fp2[0], latest_fp2[1])))
                             # Save the time that we will need access to these new freq/phase values.
-                            time = pulse['Time']
-                            prev_start = self.get_absolute_time(time[0], time[1], i)
+                            latest_change = self.get_absolute_time(time[0], time[1], i)
 
-                            # Store current pulse
-                            ph = self.phase_sync(p_freq, p_phase, prev_start - iteration_start)
+                            # Update global pulse definition with new phase synced value
+                            ph = self.phase_sync(p_freq, p_phase, abs_time - ref_start)
                             for pul in self.pulse_definitions:
                                 if pul['ID'] == pulse['ID']:
                                     pul['Phase'][i] = ph
@@ -1189,7 +1206,10 @@ class Driver(LabberDriver):
                             latest_fp2 = None
                     elif carrier == 2:  # Same for carrier 2
                         if latest_fp2 is None:
-                            ph = self.phase_sync(p_freq, p_phase, prev_start - iteration_start)
+                            # Calculate the phase difference between this pulse and the start of the carrier change
+                            carr_change_ps = ((abs_time - latest_change) * p_freq * 2)
+                            # Phase sync to the reference point, then subtract the potential "double generator" offset
+                            ph = self.phase_sync(p_freq, p_phase, abs_time - ref_start) - carr_change_ps
                             for pul in self.pulse_definitions:
                                 if pul['ID'] == pulse['ID']:
                                     pul['Phase'][i] = ph
@@ -1201,13 +1221,12 @@ class Driver(LabberDriver):
                         else:
                             if latest_fp1 is None:
                                 latest_fp1 = (0, 0)
-                            carrier_changes.append((prev_start,
+                            carrier_changes.append((latest_change,
                                                     (latest_fp1[0], latest_fp1[1]),
                                                     (latest_fp2[0], latest_fp2[1])))
-                            time = pulse['Time']
-                            prev_start = self.get_absolute_time(time[0], time[1], i)
+                            latest_change = self.get_absolute_time(time[0], time[1], i)
 
-                            ph = self.phase_sync(p_freq, p_phase, prev_start - iteration_start)
+                            ph = self.phase_sync(p_freq, p_phase, abs_time - ref_start)
                             for pul in self.pulse_definitions:
                                 if pul['ID'] == pulse['ID']:
                                     pul['Phase'][i] = ph
@@ -1222,7 +1241,7 @@ class Driver(LabberDriver):
                     latest_fp2 = (0, 0)
                 if latest_fp1 is None:
                     latest_fp1 = (0, 0)
-                carrier_changes.append((prev_start,
+                carrier_changes.append((latest_change,
                                         (latest_fp1[0], latest_fp1[1]),
                                         (latest_fp2[0], latest_fp2[1])))
             port_carrier_changes[port_idx] = carrier_changes
@@ -1278,7 +1297,7 @@ class Driver(LabberDriver):
                     p_copy['ID'] = self.get_next_pulse_id()
                     p_copy['Port'] = port
                     p_copy['Phase'] = [phase + phase_shift for phase in pulse['Phase']]
-                    p_copy['Amp'] = [amp + amp_shift for amp in pulse['Amp']]
+                    p_copy['Amp'] = [amp * amp_shift for amp in pulse['Amp']]
                     self.pulse_definitions.insert(idx + 1, p_copy)
 
                     # Set up the old target pulse's template on the new port
@@ -1513,7 +1532,9 @@ class Driver(LabberDriver):
         Also writes the current version of that string to the log file.
         """
         if self.DEBUG_ENABLE:
-            self.debug_contents += string + '\n'
+            if self.INITIAL_TIME is None:
+                self.INITIAL_TIME = time.time()
+            self.debug_contents += str(time.time() - self.INITIAL_TIME) + ": " + string + '\n'
             # Write what has been accumulated so far
             self.print_lines()
 
