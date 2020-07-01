@@ -11,7 +11,7 @@ MAX_PULSE_DEFS = 16
 TEMPLATES = ['Square', 'Long drive', 'Sin2', 'SinP', 'Sinc', 'Triangle', 'Gaussian', 'Cool']
 TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
-VERSION = '1.5'
+VERSION = '1.0'
 DRIVER_PATH = 'Vivace_Pulse_Sequencer'
 INTERFACE = 'TCPIP'
 
@@ -343,6 +343,20 @@ def section_preview():
     gen.permission('READ')
 
 
+def section_version():
+    section = 'Version'
+    group = 'ViPS'
+
+    gen.create_quant('ViPS version', 'Version', 'STRING', group, section)
+    gen.set_cmd('vips_version')
+
+    group = 'Vivace'
+    gen.create_quant('Vivace hardware version', 'Hardware version', 'STRING', group, section)
+    gen.set_cmd('vivace_hw_version')
+
+    gen.create_quant('Vivace firmware version', 'Firmware version', 'STRING', group, section)
+    gen.set_cmd('vivace_fw_version')
+
 ########## INIT ##########
 gen.general_settings(NAME, VERSION, DRIVER_PATH, author='Johan Blomberg and Gustav Grännsjö', interface=INTERFACE)
 
@@ -362,5 +376,7 @@ section_sample()
 
 gen.big_comment('PREVIEW')
 section_preview()
+
+section_version()
 
 gen.write(FILENAME)

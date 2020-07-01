@@ -21,6 +21,11 @@ class Driver(LabberDriver):
     # In order to use the driver with actual hardware, DRY_RUN needs to be False
     DRY_RUN = True
 
+    # Version numbers
+    VIPS_VER = None
+    VIVACE_HW_VER = None
+    VIVACE_FW_VER = None
+
     """
     Debug mode is enabled with DEBUG_ENABLE = True. In Debug mode, every call to a SimpleQ method
     will be written to a log file. This lets the developer see if the given set of instrument
@@ -40,6 +45,9 @@ class Driver(LabberDriver):
 
         # IP address used to connect to board
         self.address = self.getAddress()
+
+        # Get the relevant version numbers
+        self.fetch_version_numbers()
 
         self.sample_freq = None
         self.averages = None
@@ -170,6 +178,16 @@ class Driver(LabberDriver):
         if 'quarter_value' in set_commands:
             return round(value * 4) / 4
 
+        # Set the proper version numbers
+        if 'vips_version' in set_commands:
+            return self.VIPS_VER
+
+        if 'vivace_hw_version' in set_commands:
+            return self.VIVACE_HW_VER
+
+        if 'vivace_fw_version' in set_commands:
+            return self.VIVACE_FW_VER
+
         return value
 
     def is_value_new(self, quant, value):
@@ -246,6 +264,31 @@ class Driver(LabberDriver):
             except ValueError:
                 return 'INVALID: ' + string
         return string.replace(' ', '').replace(',', ', ').upper()
+
+    def fetch_version_numbers(self):
+        """
+        Fetch the version number of both ViPS (from its definition file)
+        and Vivace (by connecting to the hardware), and store them.
+        """
+        # Get ViPS version no.
+        ini_path = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(ini_path, 'Vivace_Pulse_Sequencer.ini')) as ini:
+            line = next(ini)
+            while not line.startswith('version:'):
+                line = next(ini)
+            version = line.split(': ')[1]
+            self.VIPS_VER = version
+
+        # Get Vivace's HW and FW version
+        with pulsed.Pulsed(dry_run=self.DRY_RUN, address=self.address) as q:
+            try:
+                version = q._rflockin.read_register(24)
+                variant = q._rflockin.read_register(25)
+            except AttributeError:
+                version = 'Could not connect to Vivace :('
+                variant = 'Could not connect to Vivace :('
+            self.VIVACE_HW_VER = version
+            self.VIVACE_FW_VER = variant
 
     def performGetValue(self, quant, options={}):
         """
