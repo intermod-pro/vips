@@ -351,11 +351,15 @@ def section_version():
     gen.set_cmd('vips_version')
 
     group = 'Vivace'
-    gen.create_quant('Vivace hardware version', 'Hardware version', 'STRING', group, section)
-    gen.set_cmd('vivace_hw_version')
 
     gen.create_quant('Vivace firmware version', 'Firmware version', 'STRING', group, section)
     gen.set_cmd('vivace_fw_version')
+
+    gen.create_quant('Vivace server version', 'Server version', 'STRING', group, section)
+    gen.set_cmd('vivace_server_version')
+
+    gen.create_quant('Vivace API version', 'API version', 'STRING', group, section)
+    gen.set_cmd('vivace_api_version')
 
 ########## INIT ##########
 gen.general_settings(NAME, VERSION, DRIVER_PATH, author='Johan Blomberg and Gustav Grännsjö', interface=INTERFACE)

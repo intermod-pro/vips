@@ -12,6 +12,7 @@ from scipy.interpolate import interp1d
 
 from BaseDriver import LabberDriver, Error
 
+import vivace
 from vivace import pulsed
 import envelopes
 
@@ -23,8 +24,9 @@ class Driver(LabberDriver):
 
     # Version numbers
     VIPS_VER = None
-    VIVACE_HW_VER = None
     VIVACE_FW_VER = None
+    VIVACE_SERVER_VER = None
+    VIVACE_API_VER = None
 
     """
     Debug mode is enabled with DEBUG_ENABLE = True. In Debug mode, every call to a SimpleQ method
@@ -178,15 +180,18 @@ class Driver(LabberDriver):
         if 'quarter_value' in set_commands:
             return round(value * 4) / 4
 
-        # Set the proper version numbers
+        # Version numbers should be kept constant
         if 'vips_version' in set_commands:
             return self.VIPS_VER
 
-        if 'vivace_hw_version' in set_commands:
-            return self.VIVACE_HW_VER
-
         if 'vivace_fw_version' in set_commands:
             return self.VIVACE_FW_VER
+
+        if 'vivace_server_version' in set_commands:
+            return self.VIVACE_SERVER_VER
+
+        if 'vivace_api_version' in set_commands:
+            return self.VIVACE_API_VER
 
         return value
 
@@ -279,16 +284,18 @@ class Driver(LabberDriver):
             version = line.split(': ')[1]
             self.VIPS_VER = version
 
-        # Get Vivace's HW and FW version
+        # Get Vivace's version numbers
         with pulsed.Pulsed(dry_run=self.DRY_RUN, address=self.address) as q:
+            self.VIVACE_API_VER = '1.0.2'  # TODO fetch from Vivace
+
             try:
-                version = q._rflockin.read_register(24)
-                variant = q._rflockin.read_register(25)
+                fw_ver = q._rflockin.read_register(24)
+                server_ver = q._rflockin.get_server_version()
             except AttributeError:
-                version = 'Could not connect to Vivace :('
-                variant = 'Could not connect to Vivace :('
-            self.VIVACE_HW_VER = version
-            self.VIVACE_FW_VER = variant
+                fw_ver = 'Could not connect to Vivace :('
+                server_ver = 'Could not connect to Vivace :('
+            self.VIVACE_FW_VER = fw_ver
+            self.VIVACE_SERVER_VER = server_ver
 
     def performGetValue(self, quant, options={}):
         """
