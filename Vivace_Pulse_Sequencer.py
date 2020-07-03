@@ -360,6 +360,11 @@ class Driver(LabberDriver):
             template_no = int(quant.name.split()[1][0])
             template_def = template_defs[template_no - 1]
             x, y = self.template_def_to_points(template_def, 0, q)
+
+            # Add a fake 0 at the end so the template looks nicer
+            x = np.append(x, x[-1] + 1 / q.sampling_freq)
+            y = np.append(y, 0)
+
             return quant.getTraceDict(y, x=x, t0=x[0], dt=(x[1] - x[0]))
 
     def template_def_to_points(self, template_def, iteration, q):
@@ -376,7 +381,9 @@ class Driver(LabberDriver):
                                  'it would take forever to create a list of >100 000 points!')
             long_p = np.linspace(1, 1, n_long_points)
             fall_p = template_def['Fall Points']
-            x = np.linspace(0, duration, len(rise_p) + n_long_points + len(fall_p))
+            total_points = len(rise_p) + n_long_points + len(fall_p)
+            end_point = (total_points - 1) / q.sampling_freq
+            x = np.linspace(0, end_point, total_points)
             y = np.concatenate((rise_p, long_p, fall_p))
             return x, y
 
@@ -388,14 +395,16 @@ class Driver(LabberDriver):
             if n_points >= 1e5:
                 raise ValueError('Your long drive template is too long to preview, '
                                  'it would take forever to create a list of >100 000 points!')
-            x = np.linspace(0, duration, n_points)
+            end_point = (n_points - 1) / q.sampling_freq
+            x = np.linspace(0, end_point, n_points)
             y = np.linspace(1, 1, n_points)
             return x, y
 
         if template_def['Duration'] <= 0:
             return [], []
         y = template_def['Points']
-        x = np.linspace(0, template_def['Duration'], len(y))
+        end_point = (len(y) - 1) / q.sampling_freq
+        x = np.linspace(0, end_point, len(y))
         return x, y
 
     def get_sequence_preview(self, quant):
@@ -468,7 +477,7 @@ class Driver(LabberDriver):
                     # Place it in the preview timeline
                     pulse_index = int(time * sampling_freq)
                     points_that_fit = len(preview_points[pulse_index:(pulse_index+len(wave))])
-                    preview_points[pulse_index:(pulse_index + len(wave))] += wave[:points_that_fit]
+                    preview_points[pulse_index:(pulse_index + points_that_fit)] += wave[:points_that_fit]
 
             # Display the sample windows
             for sample in sample_pulses:
@@ -645,19 +654,20 @@ class Driver(LabberDriver):
                 raise ValueError(f'The rise and fall durations in template {definition_idx} exceed the '
                                  f'template\'s total duration!')
             template['Flank Duration'] = flank_duration
-            flank_points = int(round(flank_duration * sampling_frequency) + 1)
+            flank_points = int(round(flank_duration * sampling_frequency))
             # How many sigma we should cut off our gaussian at
             cutoff = 3.2
             # Rise
-            rise_x = np.linspace(-cutoff, 0, flank_points)
+            rise_x = np.linspace(-cutoff, 0, flank_points+1)
             rise_y = norm.pdf(rise_x, 0, 1)
             rise_y = rise_y / rise_y.max()
-            template['Rise Points'] = rise_y
+            rise_y[0] = 0  # For symmetry's sake
+            template['Rise Points'] = rise_y[:-1]
             # Fall
-            fall_x = np.linspace(0, cutoff, flank_points)
+            fall_x = np.linspace(0, cutoff, flank_points+1)
             fall_y = norm.pdf(fall_x, 0, 1)
             fall_y = fall_y / fall_y.max()
-            template['Fall Points'] = fall_y
+            template['Fall Points'] = fall_y[:-1]
         return template
 
     def get_template_points(self, template_name, n_points, definition_idx):
@@ -666,22 +676,22 @@ class Driver(LabberDriver):
         definition_idx is needed to fetch extra user-set parameters for certain templates (like the p in sinP).
         """
         if template_name == 'Square':
-            return np.ones(n_points)
+            return np.ones(n_points+1)[:-1]
         if template_name == 'SinP':
             p = self.getValue(f'Envelope template {definition_idx}: sinP Value')
-            return envelopes.sin_p(p, n_points)
+            return envelopes.sin_p(p, n_points+1)[:-1]
         if template_name == 'Sin2':
-            return envelopes.sin2(n_points)
+            return envelopes.sin2(n_points+1)[:-1]
         if template_name == 'Sinc':
             cutoff = self.getValue(f'Envelope template {definition_idx}: sinc cutoff')
-            return envelopes.sinc(cutoff, n_points)
+            return envelopes.sinc(cutoff, n_points+1)[:-1]
         if template_name == 'Triangle':
-            return envelopes.triangle(n_points)
+            return envelopes.triangle(n_points+1)[:-1]
         if template_name == 'Gaussian':
             trunc = self.getValue(f'Envelope template {definition_idx}: gaussian truncation')
-            return envelopes.gaussian(n_points, trunc)
+            return envelopes.gaussian(n_points+1, trunc)[:-1]
         if template_name == 'Cool':
-            return envelopes.cool(n_points)
+            return envelopes.cool(n_points+1)[:-1]
         if template_name.startswith('Custom'):
             idx = template_name[-1]
             # Fetch the template's shape from the designated input
@@ -703,7 +713,7 @@ class Driver(LabberDriver):
             curve_fit = interp1d(custom_times, custom_values)
             return curve_fit(np.linspace(custom_times[0], custom_times[-1], n_points))
 
-        raise ValueError('Something is wrong with the combo box for template selection!')
+        raise ValueError('Selected envelope shape is not defined in driver!')
 
     def get_port_settings(self):
         """

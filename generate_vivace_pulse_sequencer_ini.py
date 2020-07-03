@@ -11,7 +11,7 @@ MAX_PULSE_DEFS = 16
 TEMPLATES = ['Square', 'Long drive', 'Sin2', 'SinP', 'Sinc', 'Triangle', 'Gaussian', 'Cool']
 TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
-VERSION = '1.0'
+VERSION = '1.0.1'
 DRIVER_PATH = 'Vivace_Pulse_Sequencer'
 INTERFACE = 'TCPIP'
 
@@ -109,7 +109,7 @@ def section_templates():
         gen.create_quant(f'Envelope template {i}: padding length', 'Padding length', 'DOUBLE', group, section)
         gen.unit('ns')
         gen.visibility(f'Envelope template {i}: use zero-padding', True)
-        gen.limits(low=0, high=2)
+        gen.limits(low=0, high=1.75)
         gen.default(1)
         gen.set_cmd('quarter_value')
 
@@ -347,7 +347,7 @@ def section_version():
     section = 'Version'
     group = 'ViPS'
 
-    gen.create_quant('ViPS version', 'Version', 'STRING', group, section)
+    gen.create_quant('ViPS version', 'Version♣', 'STRING', group, section)
     gen.set_cmd('vips_version')
 
     group = 'Vivace'
