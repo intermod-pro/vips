@@ -11,7 +11,7 @@ MAX_PULSE_DEFS = 16
 TEMPLATES = ['Square', 'Long drive', 'Sin2', 'SinP', 'Sinc', 'Triangle', 'Gaussian', 'Cool']
 TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
-VERSION = '1.0.1'
+VERSION = '1.0.2'
 DRIVER_PATH = 'Vivace_Pulse_Sequencer'
 INTERFACE = 'TCPIP'
 
@@ -116,7 +116,7 @@ def section_templates():
         # Long drive special duration
         gen.create_quant(f'Envelope template {i}: long drive duration', 'Duration', 'STRING', group, section)
         gen.unit('s')
-        gen.set_cmd('time_string', 'single')
+        gen.set_cmd('time_string')
         gen.tooltip('Example: 100E6 + 50E6*i')
         gen.default('0 + 0*i')
         gen.visibility(f'Envelope template {i}: shape', 'Long drive')
@@ -187,7 +187,7 @@ def section_port_sequence(port):
 
         # Timing
         gen.create_quant(f'Port {port} - def {i} - start times', 'Start times', 'STRING', group, section)
-        gen.set_cmd('time_string')
+        gen.set_cmd('time_string', 'list')
         gen.unit('s')
         gen.default('0 + 0*i')
         gen.tooltip('Example: 100E6 + 50E6*i, 700E6, ...')
@@ -273,7 +273,7 @@ def section_sample():
 
     # Timings
     gen.create_quant(f'Sampling - start times', 'Start times', 'STRING', group, section)
-    gen.set_cmd('time_string')
+    gen.set_cmd('time_string', 'list')
     gen.unit('s')
     gen.default('0 + 0*i')
     gen.tooltip('Example: 100E6 + 50E6*i, 700E6, ...')
@@ -315,29 +315,34 @@ def section_preview():
 
     gen.create_quant('Preview port', 'Preview sequence on port', 'COMBO', group, section)
     gen.combo_options(*[i for i in range(1, N_PORTS+1)])
+    gen.set_cmd('not_affecting_board')
 
     gen.create_quant('Preview iteration', 'Preview iteration', 'DOUBLE', group, section)
     gen.default(1)
     gen.limits(low=1)
-    gen.set_cmd('int')
+    gen.set_cmd('int', 'not_affecting_board')
 
     gen.create_quant('Enable preview slicing', 'Enable preview slicing', 'BOOLEAN', group, section)
     gen.tooltip('This will let you specify which segment of the pulse sequence to preview.')
+    gen.set_cmd('not_affecting_board')
 
     gen.create_quant('Preview slice start', 'Slice start', 'DOUBLE', group, section)
     gen.unit('s')
     gen.limits(low=0)
     gen.visibility('Enable preview slicing', True)
+    gen.set_cmd('not_affecting_board')
 
     gen.create_quant('Preview slice end', 'Slice end', 'DOUBLE', group, section)
     gen.unit('s')
     gen.limits(low=1E-9)
     gen.default(1E-9)
     gen.visibility('Enable preview slicing', True)
+    gen.set_cmd('not_affecting_board')
 
     gen.create_quant('Preview sample windows', 'Preview sample windows', 'BOOLEAN', group, section)
     gen.tooltip('This will display sample windows as flat lines at y=-0.1. '
                 'Output pulses that overlap with these sample windows will be hidden.')
+    gen.set_cmd('not_affecting_board')
 
     gen.create_quant('Pulse sequence preview', '', 'VECTOR', group, section)
     gen.permission('READ')
@@ -347,7 +352,7 @@ def section_version():
     section = 'Version'
     group = 'ViPS'
 
-    gen.create_quant('ViPS version', 'Version♣', 'STRING', group, section)
+    gen.create_quant('ViPS version', 'Version', 'STRING', group, section)
     gen.set_cmd('vips_version')
 
     group = 'Vivace'

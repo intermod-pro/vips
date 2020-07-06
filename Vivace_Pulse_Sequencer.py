@@ -2,7 +2,6 @@
 
 import os
 from pathlib import Path
-import re
 import math
 import time
 
@@ -12,9 +11,10 @@ from scipy.interpolate import interp1d
 
 from BaseDriver import LabberDriver, Error
 
-import vivace
 from vivace import pulsed
 import envelopes
+import input_handler
+
 
 class Driver(LabberDriver):
     """ This class implements a Labber driver"""
@@ -22,7 +22,7 @@ class Driver(LabberDriver):
     # In order to use the driver with actual hardware, DRY_RUN needs to be False
     DRY_RUN = True
 
-    # Version numbers
+    # Version numbers, will be fetched from ViPS definition and Vivace
     VIPS_VER = None
     VIVACE_FW_VER = None
     VIVACE_SERVER_VER = None
@@ -35,7 +35,7 @@ class Driver(LabberDriver):
     The file is written to C:/Users/[username]/DEBUG_PATH/DEBUG_FILE_NAME. If no
     file name is given, it will default to 'log.txt'.
     """
-    DEBUG_ENABLE = False
+    DEBUG_ENABLE = True
     USER_DIR = os.path.expanduser('~')
     DEBUG_PATH = 'Vivace_Sequencer_Debug'
     DEBUG_FILE_NAME = ''
@@ -78,6 +78,7 @@ class Driver(LabberDriver):
         self.previously_outputted_trace_configs = []
 
         self.debug_contents = ''
+        self.new_debug_log = True
         self.INITIAL_TIME = None
 
     def reset_instrument(self):
@@ -109,6 +110,7 @@ class Driver(LabberDriver):
         self.previously_outputted_trace_configs = []
 
         self.debug_contents = ''
+        self.new_debug_log = True
         self.INITIAL_TIME = None
 
     def get_next_pulse_id(self):
@@ -132,53 +134,8 @@ class Driver(LabberDriver):
         # If a new value is set that affects the outcome of a measurement, we need to
         # reset our stored variables to force a re-run of our measurements
         if 'not_affecting_board' not in set_commands:
-            if self.is_value_new(quant, value):
+            if input_handler.is_value_new(self, quant, value):
                 self.reset_instrument()
-
-        # Some quants should only accept input of the form [base] + [delta]*i
-        if 'time_string' in set_commands:
-            # Strip the input down to the essential part
-            value = value.replace('INVALID: ', '')
-            input_str = value.replace(' ', '')
-            # The representation of a number in E notation
-            num_rex = r'(([0-9]+)|([0-9]*\.[0-9]+))(e-?[0-9]+)?'
-            rex = re.compile(num_rex + '(\\*?i|\\+' + num_rex + '\\*?i)?', re.I)
-            # Split the string if the quant accepts multiple values
-            if 'single' in set_commands:
-                strings = [input_str]
-            else:
-                strings = input_str.split(',')
-
-            # Every string has to be valid
-            for idx, s in enumerate(strings):
-                match = rex.fullmatch(s)
-                if not match:
-                    return 'INVALID: ' + value
-                # Split into the separate numbers to do some formatting
-                num_strings = s.split('+')
-                for idx2, num_string in enumerate(num_strings):
-                    # If we have leading zeroes, truncate
-                    while num_string.startswith('0') and len(num_string) > 1 and num_string[1].isnumeric():
-                        num_string = num_string[1:]
-                    # Insert a zero if the number starts with a period
-                    if num_string.startswith('.'):
-                        num_string = '0' + num_string
-                    num_strings[idx2] = num_string
-                strings[idx] = '+'.join(num_strings)
-            return ', '.join(strings).replace('e', 'E')
-
-        # Some quants should allow a list of comma-separated doubles
-        if 'double_list' in set_commands:
-            value = value.replace('INVALID: ', '')
-            return self.parse_list_of_doubles(value)
-
-        # Some Double quants should only allow integer values
-        if 'int' in set_commands:
-            return int(value)
-
-        # The quant used for setting padding length allows values in intervals of 0.25
-        if 'quarter_value' in set_commands:
-            return round(value * 4) / 4
 
         # Version numbers should be kept constant
         if 'vips_version' in set_commands:
@@ -193,82 +150,7 @@ class Driver(LabberDriver):
         if 'vivace_api_version' in set_commands:
             return self.VIVACE_API_VER
 
-        return value
-
-    def is_value_new(self, quant, value):
-        """
-        Check if the given value differs from the value stored in the given quant.
-        """
-        current_value = self.getValue(quant.name)
-
-        # Combo quants have datatype 2
-        if quant.datatype == 2 and isinstance(value, float):
-            current_value = self.getValueIndex(quant.name)
-
-        # If it is a vector, we need to do a different equality test (because numpy does not work with == checks)
-        if isinstance(value, dict):
-            if len(current_value['y']) != len(value['y']):
-                return True
-            # If the vectors are of the same length and use plain time axes, we need to run an elementwise comparison
-            if 'x' in current_value and 'x' in value:
-                if not (np.allclose(current_value['y'], value['y'])
-                        and np.allclose(current_value['x'], value['x'])):
-                    return True
-            # If the new vector is not in the same format, it counts as changed
-            elif 'x' in current_value or 'x' in value:
-                return True
-            # The vectors are in base-delta time format, compare these values along with y values
-            else:
-                if not (np.allclose(current_value['y'], value['y'])
-                        and np.isclose(current_value['t0'], value['t0'])
-                        and np.isclose(current_value['dt'], value['dt'])):
-                    return True
-        # Use a little leniency when checking floats due to rounding errors in python
-        elif isinstance(value, float):
-            if not math.isclose(current_value, value):
-                return True
-        elif current_value is not value:
-            return True
-        return False
-
-    def parse_number(self, string):
-        """
-        Parse time values on [base] + [delta]*i form and converts them to floats.
-        Return both base and delta as separate floats.
-        """
-        string = string.lower().replace(' ', '')
-        # String was in incorrect format
-        if string.startswith('invalid'):
-            raise ValueError('Invalid format of start time/duration string!')
-
-        if '+' in string:
-            # Both base and delta
-            terms = string.split('+')
-            base = float(terms[0])
-            # Remove the '*i'
-            tail_index = re.search("[*i]", terms[1]).start()
-            delta = float(terms[1][:tail_index])
-            return base, delta
-
-        if 'i' in string:
-            # only delta, remove the 'i' and the '*' if available
-            tail_index = re.search("[*i]", string).start()
-            return 0.0, float(string[:tail_index])
-
-        # No + or i, we only have a base time
-        return float(string), 0.0
-
-    def parse_list_of_doubles(self, string):
-        """
-        Ensure that the given input string is a list of comma-separated floats.
-        Return a formatted version of the input string, preceded by INVALID if something is incorrect.
-        """
-        for val in string.split(','):
-            try:
-                float(val)
-            except ValueError:
-                return 'INVALID: ' + string
-        return string.replace(' ', '').replace(',', ', ').upper()
+        return input_handler.handle_input(quant, value)
 
     def fetch_version_numbers(self):
         """
@@ -642,7 +524,7 @@ class Driver(LabberDriver):
         template = {}
         dur_string = self.getValue(f'Envelope template {definition_idx}: long drive duration')
         try:
-            template['Base'], template['Delta'] = self.parse_number(dur_string)
+            template['Base'], template['Delta'] = input_handler.parse_number(dur_string)
         except ValueError:
             error_msg = f'Invalid duration value for template definition {definition_idx}'
             raise ValueError(error_msg)
@@ -832,7 +714,7 @@ class Driver(LabberDriver):
             if i < n_start_times:
                 # Get start time value
                 try:
-                    time = self.parse_number(start_time)
+                    time = input_handler.parse_number(start_time)
                 except ValueError:
                     err_msg = f'Invalid start time definition for port {port}, definition {def_idx}'
                     raise ValueError(err_msg)
@@ -1066,7 +948,7 @@ class Driver(LabberDriver):
         # Store the sample pulse's defining parameters
         for start_time in start_times:
             try:
-                time = self.parse_number(start_time)
+                time = input_handler.parse_number(start_time)
             except ValueError:
                 err_msg = f'Invalid start time definition for sampling!'
                 raise ValueError(err_msg)
@@ -1592,11 +1474,20 @@ class Driver(LabberDriver):
         Also writes the current version of that string to the log file.
         """
         if self.DEBUG_ENABLE:
+            if self.new_debug_log:
+                self.initialise_debug_file()
+                self.new_debug_log = False
+
             if self.INITIAL_TIME is None:
                 self.INITIAL_TIME = time.time()
-            self.debug_contents += str(time.time() - self.INITIAL_TIME) + ": " + string + '\n'
+
+            filename = self.DEBUG_FILE_NAME if self.DEBUG_FILE_NAME != '' else 'log.txt'
+            directory = os.path.join(self.USER_DIR, self.DEBUG_PATH)
+            with open(os.path.join(directory, filename), 'a') as f:
+                f.write(str(time.time() - self.INITIAL_TIME) + ": " + string + '\n')
+            #self.debug_contents += str(time.time() - self.INITIAL_TIME) + ": " + string + '\n'
             # Write what has been accumulated so far
-            self.print_lines()
+            #self.print_lines()
 
     def print_lines(self):
         """
@@ -1610,6 +1501,19 @@ class Driver(LabberDriver):
             Path(directory).mkdir(parents=True, exist_ok=True)
             with open(os.path.join(directory, filename), 'w') as f:
                 f.write(self.debug_contents + '\n')
+
+    def initialise_debug_file(self):
+        """
+        DEBUG:
+        Empty the log file.
+        """
+        if self.DEBUG_ENABLE:
+            # If no file name is specified, default to log.txt
+            filename = self.DEBUG_FILE_NAME if self.DEBUG_FILE_NAME != '' else 'log.txt'
+            directory = os.path.join(self.USER_DIR, self.DEBUG_PATH)
+            Path(directory).mkdir(parents=True, exist_ok=True)
+            with open(os.path.join(directory, filename), 'w') as f:
+                f.write('START\n')
 
     def print_trigger_sequence(self, q):
         """
