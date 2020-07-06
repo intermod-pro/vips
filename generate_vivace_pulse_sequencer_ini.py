@@ -11,7 +11,7 @@ MAX_PULSE_DEFS = 16
 TEMPLATES = ['Square', 'Long drive', 'Sin2', 'SinP', 'Sinc', 'Triangle', 'Gaussian', 'Cool']
 TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
-VERSION = '1.0.2'
+VERSION = '1.0.3'
 DRIVER_PATH = 'Vivace_Pulse_Sequencer'
 INTERFACE = 'TCPIP'
 
@@ -348,23 +348,37 @@ def section_preview():
     gen.permission('READ')
 
 
-def section_version():
-    section = 'Version'
-    group = 'ViPS'
+def section_debug():
+    section = 'Debug'
+    group = 'Logging'
 
-    gen.create_quant('ViPS version', 'Version', 'STRING', group, section)
+    gen.create_quant('Enable Vivace call logging', 'Enable Vivace call logging', 'BOOLEAN', group, section)
+    gen.set_cmd('not_affecting_board')
+
+    gen.create_quant('Log file name', 'Log file name', 'STRING', group, section)
+    gen.visibility('Enable Vivace call logging', True)
+    gen.default('log')
+    gen.set_cmd('not_affecting_board')
+
+    gen.create_quant('Overwrite previous log', 'Overwrite previous log', 'BOOLEAN', group, section)
+    gen.visibility('Enable Vivace call logging', True)
+    gen.default(True)
+    gen.set_cmd('not_affecting_board')
+
+    group = 'Versions'
+
+    gen.create_quant('ViPS version', 'ViPS', 'STRING', group, section)
     gen.set_cmd('vips_version')
 
-    group = 'Vivace'
-
-    gen.create_quant('Vivace firmware version', 'Firmware version', 'STRING', group, section)
+    gen.create_quant('Vivace firmware version', 'Vivace firmware', 'STRING', group, section)
     gen.set_cmd('vivace_fw_version')
 
-    gen.create_quant('Vivace server version', 'Server version', 'STRING', group, section)
+    gen.create_quant('Vivace server version', 'Vivace server', 'STRING', group, section)
     gen.set_cmd('vivace_server_version')
 
-    gen.create_quant('Vivace API version', 'API version', 'STRING', group, section)
+    gen.create_quant('Vivace API version', 'Vivace API', 'STRING', group, section)
     gen.set_cmd('vivace_api_version')
+
 
 ########## INIT ##########
 gen.general_settings(NAME, VERSION, DRIVER_PATH, author='Johan Blomberg and Gustav Grännsjö', interface=INTERFACE)
@@ -386,6 +400,6 @@ section_sample()
 gen.big_comment('PREVIEW')
 section_preview()
 
-section_version()
+section_debug()
 
 gen.write(FILENAME)
