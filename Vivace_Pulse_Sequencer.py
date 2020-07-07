@@ -28,7 +28,7 @@ class Driver(LabberDriver):
     VIVACE_API_VER = None
     
     # Logger for debug purposes
-    log = logger.Logger()
+    lgr = logger.Logger()
 
     def __init__(self, dInstrCfg=None, dComCfg=None, dValues=None, dOption=None,
                  dPrefs={}, queueIn=None, queueOut=None, logger=None):
@@ -67,7 +67,7 @@ class Driver(LabberDriver):
         # This list is used to keep track of the specific options used when getting traces in Labber
         self.previously_outputted_trace_configs = []
 
-        self.log.new_log = True
+        self.lgr.new_log = True
 
     def reset_instrument(self):
         """
@@ -97,7 +97,7 @@ class Driver(LabberDriver):
 
         self.previously_outputted_trace_configs = []
 
-        self.log.new_log = True
+        self.lgr.new_log = True
 
     def get_next_pulse_id(self):
         self.pulse_id_counter += 1
@@ -189,7 +189,7 @@ class Driver(LabberDriver):
             options['delay'] = 0
             circumstance = (quant.name, window_idx, options)
             # Add the circumstance information to the debug log
-            self.log.add_line(str(circumstance))
+            self.lgr.add_line(str(circumstance))
             if circumstance in self.previously_outputted_trace_configs:
                 self.reset_instrument()
                 self.perform_measurement()
@@ -419,7 +419,7 @@ class Driver(LabberDriver):
 
             # Start measuring
             total_time = self.measurement_period * (self.iterations + 1)
-            self.log.add_line('q.perform_measurement()')
+            self.lgr.add_line('q.perform_measurement()')
             output = q.perform_measurement(total_time, 1, self.averages)
             if not q.dry_run:
                 # Store the results
@@ -460,19 +460,19 @@ class Driver(LabberDriver):
         """
         Fetch the user-specified debug-related settings and pass them on to the logger.
         """
-        self.log.enable = self.getValue('Enable Vivace call logging')
+        self.lgr.enable = self.getValue('Enable Vivace call logging')
 
-        if self.log.enable:
+        if self.lgr.enable:
             log_name = self.getValue('Log file name')
             for c in '\/:*?"<>|':
                 if c in log_name:
                     raise ValueError(f'The log file name contains the illegal character {c}!')
 
             # If no file name is specified, default to log
-            self.log.file_name = log_name if log_name != '' else 'log'
-            self.log.working_file_name = self.log.file_name
+            self.lgr.file_name = log_name if log_name != '' else 'log'
+            self.lgr.working_file_name = self.lgr.file_name
 
-            self.log.overwrite = self.getValue('Overwrite previous log')
+            self.lgr.overwrite = self.getValue('Overwrite previous log')
 
     def get_general_settings(self):
         """
@@ -627,7 +627,7 @@ class Driver(LabberDriver):
             for port in range(1, 9):
                 bias = self.getValue(f'Port {port} - DC bias')
                 bias = bias / 1.25
-                self.log.add_line(f'q._rflockin.set_bias_dac(port={port}, bias={bias})')
+                self.lgr.add_line(f'q._rflockin.set_bias_dac(port={port}, bias={bias})')
                 q._rflockin.set_bias_dac(port, bias)
 
     def get_all_pulse_defs(self, q):
@@ -802,10 +802,10 @@ class Driver(LabberDriver):
             im_points = im_points / biggest_outlier
 
             # Set up both templates on the board and store them
-            self.log.add_line(f'q.setup_template(port={port}, points={re_points}, carrier=1, use_scale=True)')
-            self.log.add_line(f'q.setup_template(port={port}, points={im_points}, carrier=2, use_scale=True)')
-            self.log.add_line(f'q.setup_template(port={sibling_port}, points={re_points}, carrier=1, use_scale=True)')
-            self.log.add_line(f'q.setup_template(port={sibling_port}, points={im_points}, carrier=2, use_scale=True)')
+            self.lgr.add_line(f'q.setup_template(port={port}, points={re_points}, carrier=1, use_scale=True)')
+            self.lgr.add_line(f'q.setup_template(port={port}, points={im_points}, carrier=2, use_scale=True)')
+            self.lgr.add_line(f'q.setup_template(port={sibling_port}, points={re_points}, carrier=1, use_scale=True)')
+            self.lgr.add_line(f'q.setup_template(port={sibling_port}, points={im_points}, carrier=2, use_scale=True)')
             base_re_template = q.setup_template(port, re_points, 1, True)
             base_im_template = q.setup_template(port, im_points, 2, True)
             sibl_re_template = q.setup_template(sibling_port, re_points, 1, True)
@@ -884,11 +884,11 @@ class Driver(LabberDriver):
                     # Set up gaussian rise and fall templates if defined.
                     if 'Flank Duration' in template_def:
                         initial_length -= 2 * template_def['Flank Duration']
-                        self.log.add_line(f'q.setup_template(port={port}, points={template_def["Rise Points"]}, carrier={carrier}, use_scale=True)')
+                        self.lgr.add_line(f'q.setup_template(port={port}, points={template_def["Rise Points"]}, carrier={carrier}, use_scale=True)')
                         rise_template = q.setup_template(port, template_def['Rise Points'], carrier, use_scale=True)
-                        self.log.add_line(f'q.setup_template(port={port}, points={template_def["Fall Points"]}, carrier={carrier}, use_scale=True)')
+                        self.lgr.add_line(f'q.setup_template(port={port}, points={template_def["Fall Points"]}, carrier={carrier}, use_scale=True)')
                         fall_template = q.setup_template(port, template_def['Fall Points'], carrier, use_scale=True)
-                    self.log.add_line(f'q.setup_long_drive(port={port}, carrier={carrier}, duration={initial_length}, use_scale=True)')
+                    self.lgr.add_line(f'q.setup_long_drive(port={port}, carrier={carrier}, duration={initial_length}, use_scale=True)')
                     try:
                         long_template = q.setup_long_drive(port,
                                                            carrier,
@@ -902,7 +902,7 @@ class Driver(LabberDriver):
                     else:
                         self.templates[port - 1][carrier - 1][template_no - 1] = long_template
                 else:
-                    self.log.add_line(f'q.setup_template(port={port}, points={template_def["Points"]}, carrier={carrier}, use_scale=True)')
+                    self.lgr.add_line(f'q.setup_template(port={port}, points={template_def["Points"]}, carrier={carrier}, use_scale=True)')
                     self.templates[port - 1][carrier - 1][template_no - 1] = q.setup_template(port,
                                                                                  template_def['Points'],
                                                                                  carrier,
@@ -937,11 +937,11 @@ class Driver(LabberDriver):
         if duration > 4096e-9:
             raise ValueError('Sampling duration must be in [0.0, 4096.0] ns')
 
-        self.log.add_line(f'q.set_store_duration({duration})')
+        self.lgr.add_line(f'q.set_store_duration({duration})')
         q.set_store_duration(duration)
 
         # Save the ports we want to sample on
-        self.log.add_line(f'q.set_store_ports({sampling_ports})')
+        self.lgr.add_line(f'q.set_store_ports({sampling_ports})')
         q.set_store_ports(sampling_ports)
         self.store_ports = sampling_ports
 
@@ -1281,7 +1281,7 @@ class Driver(LabberDriver):
                     phase_values.append(phase * np.pi)
                 # Feed our values into the tables
                 if len(freq_values) > 0 and len(phase_values) > 0:
-                    self.log.add_line(f'q.setup_freq_lut(port={port}, carrier={c+1}, freq={freq_values}, phase={phase_values})')
+                    self.lgr.add_line(f'q.setup_freq_lut(port={port}, carrier={c + 1}, freq={freq_values}, phase={phase_values})')
                     try:
                         q.setup_freq_lut(port, c+1, freq_values, phase_values)
                     except ValueError as err:
@@ -1295,7 +1295,7 @@ class Driver(LabberDriver):
                                              f'frequency/phase values on port {port}!')
                         raise err
             if len(self.amp_matrix[p]) > 0:
-                self.log.add_line(f'q.setup_scale_lut(port={port}, amp={self.amp_matrix[p]})')
+                self.lgr.add_line(f'q.setup_scale_lut(port={port}, amp={self.amp_matrix[p]})')
                 try:
                     q.setup_scale_lut(port, self.amp_matrix[p])
                 except ValueError as err:
@@ -1319,7 +1319,7 @@ class Driver(LabberDriver):
         latest_output = [0] * 8
         self.setup_carriers(q)
         for i in range(self.iterations):
-            self.log.add_line(f'-- Iteration {i} --')
+            self.lgr.add_line(f'-- Iteration {i} --')
             for pulse in self.pulse_definitions:
                 latest_output = self.setup_pulse(i, latest_output, pulse, q)
 
@@ -1334,7 +1334,7 @@ class Driver(LabberDriver):
                 # The last carrier of the last iteration can run until the iteration's end
                 else:
                     duration = (self.measurement_period * self.iterations) - t - 2e-9
-                self.log.add_line(f"q.output_carrier(time={t}, duration={duration}, port={p+1})")
+                self.lgr.add_line(f"q.output_carrier(time={t}, duration={duration}, port={p + 1})")
                 q.output_carrier(t, duration, p+1)
 
     def setup_pulse(self, iteration, latest_output, pulse, q):
@@ -1345,7 +1345,7 @@ class Driver(LabberDriver):
         """
         if 'Sample' in pulse:
             start_base, start_delta = pulse['Time']
-            self.log.add_line(f'q.store(time={self.get_absolute_time(start_base, start_delta, iteration)})')
+            self.lgr.add_line(f'q.store(time={self.get_absolute_time(start_base, start_delta, iteration)})')
             q.store(self.get_absolute_time(start_base, start_delta, iteration))
         else:
             port = pulse['Port']
@@ -1403,10 +1403,10 @@ class Driver(LabberDriver):
         # If we are using gaussian flanks, the duration must be shortened
         if isinstance(template, tuple):
             long_duration = duration - 2 * template_def['Flank Duration']
-            self.log.add_line(f'update_total_duration({long_duration})')
+            self.lgr.add_line(f'update_total_duration({long_duration})')
             template[1].update_total_duration(long_duration)
         else:
-            self.log.add_line(f'update_total_duration({duration})')
+            self.lgr.add_line(f'update_total_duration({duration})')
             template.update_total_duration(duration)
 
     def output_pulse(self, time, duration, port, template, template_def, q):
@@ -1420,18 +1420,18 @@ class Driver(LabberDriver):
             flank_duration = template_def['Flank Duration']
             # Rise
             rise_template = template[0]
-            self.log.add_line(f'q.output_pulse(time={time}, template={[rise_template]})')
+            self.lgr.add_line(f'q.output_pulse(time={time}, template={[rise_template]})')
             q.output_pulse(time, [rise_template])
             # Long
             long_template = template[1]
-            self.log.add_line(f'q.output_pulse(time={time + flank_duration}, template={[long_template]})')
+            self.lgr.add_line(f'q.output_pulse(time={time + flank_duration}, template={[long_template]})')
             q.output_pulse(time + flank_duration, [long_template])
             # Fall
             fall_template = template[2]
-            self.log.add_line(f'q.output_pulse(time={time + (duration - flank_duration)}, template={[fall_template]})')
+            self.lgr.add_line(f'q.output_pulse(time={time + (duration - flank_duration)}, template={[fall_template]})')
             q.output_pulse(time + (duration - flank_duration), [fall_template])
         else:
-            self.log.add_line(f'q.output_pulse(time={time}, template={[template]})')
+            self.lgr.add_line(f'q.output_pulse(time={time}, template={[template]})')
             q.output_pulse(time, [template])
 
     def get_absolute_time(self, base, delta, iteration):
@@ -1455,7 +1455,7 @@ class Driver(LabberDriver):
         # Find index of desired value
         for i, a in enumerate(self.amp_matrix[p]):
             if math.isclose(a, amp):
-                self.log.add_line(f"q.select_scale(time={time}, idx={i}, port={port})")
+                self.lgr.add_line(f"q.select_scale(time={time}, idx={i}, port={port})")
                 q.select_scale(time, i, port)
 
     def go_to_fp(self, q, time, port, fp1fp2):
@@ -1467,5 +1467,5 @@ class Driver(LabberDriver):
 
         for i, fpfp in enumerate(self.fp_matrix[p]):
             if self.are_fp_pairs_close(fp1fp2, fpfp):
-                self.log.add_line(f"q.select_frequency(time={time}, idx={i}, port={port})")
+                self.lgr.add_line(f"q.select_frequency(time={time}, idx={i}, port={port})")
                 q.select_frequency(time, i, port)
