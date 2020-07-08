@@ -29,6 +29,9 @@ class Driver(LabberDriver):
     # In order to use the driver with actual hardware, DRY_RUN needs to be False
     DRY_RUN = True
 
+    N_IN_PORTS = 8
+    N_OUT_PORTS = 8
+
     # Version numbers, will be fetched from Vivace and the ViPS definition
     vips_ver = None
     vivace_fw_ver = None
@@ -53,7 +56,7 @@ class Driver(LabberDriver):
         self.averages = None
         self.measurement_period = None
         self.iterations = None
-        self.templates = [[[None for _ in range(16)] for _ in range(2)] for _ in range(8)]
+        self.templates = [[[None for _ in range(16)] for _ in range(2)] for _ in range(self.N_OUT_PORTS)]
         self.drag_templates = []
         self.drag_parameters = []
         self.template_defs = None
@@ -84,7 +87,7 @@ class Driver(LabberDriver):
         self.averages = None
         self.measurement_period = None
         self.iterations = None
-        self.templates = [[[None for _ in range(16)] for _ in range(2)] for _ in range(8)]
+        self.templates = [[[None for _ in range(16)] for _ in range(2)] for _ in range(self.N_OUT_PORTS)]
         self.drag_templates = []
         self.drag_parameters = []
         self.template_defs = None
@@ -343,15 +346,15 @@ class Driver(LabberDriver):
     def get_port_settings(self):
         """
         Get each port's settings.
-        Port settings are represented by an array with 8 dictionaries, each representing a single port's settings.
+        Port settings are represented by an array of dictionaries, each representing a single output port's settings.
             The 'Mode' key contains the port's mode (Define, Disabled, Copy)
             If a port is in copy mode, also save the port it is copying from in a 'Sibling' key.
         Return a list of these dictionaries.
         """
-        port_settings = [{} for _ in range(8)]
+        port_settings = [{} for _ in range(self.N_OUT_PORTS)]
 
         # Get the mode for each port
-        for port in range(1, 9):
+        for port in range(1, self.N_OUT_PORTS+1):
             p = port - 1
             mode = self.getValue(f'Port {port} - mode')
             port_settings[p]['Mode'] = mode
@@ -362,7 +365,7 @@ class Driver(LabberDriver):
 
     def set_dc_biases(self, q):
         if not q.dry_run:
-            for port in range(1, 9):
+            for port in range(1, self.N_OUT_PORTS+1):
                 bias = self.getValue(f'Port {port} - DC bias')
                 bias = bias / 1.25
                 self.lgr.add_line(f'q._rflockin.set_bias_dac(port={port}, bias={bias})')
@@ -374,7 +377,7 @@ class Driver(LabberDriver):
         interact in a safe way. Pulses can only overlap if they have the same start and end time,
         and their combined amplitude cannot exceed 1.
         """
-        for p in range(8):
+        for p in range(self.N_OUT_PORTS):
             prev_start = -1
             prev_duration = 0
             prev_carrier = -1

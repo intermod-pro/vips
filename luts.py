@@ -23,14 +23,14 @@ def get_LUT_values(vips):
     pulse_definitions_no_samples = [pulse for pulse in vips.pulse_definitions if 'Sample' not in pulse]
 
     # Divide the pulses by the port they're on
-    port_timelines = [[] for _ in range(8)]
+    port_timelines = [[] for _ in range(vips.N_OUT_PORTS)]
     for pulse in pulse_definitions_no_samples:
         p_port_idx = pulse['Port'] - 1
         port_timelines[p_port_idx].append(pulse)
 
-    amp_values = [[] for _ in range(8)]
-    freq_phase_values = [[] for _ in range(8)]
-    port_carrier_changes = [[] for _ in range(8)]
+    amp_values = [[] for _ in range(vips.N_OUT_PORTS)]
+    freq_phase_values = [[] for _ in range(vips.N_OUT_PORTS)]
+    port_carrier_changes = [[] for _ in range(vips.N_OUT_PORTS)]
 
     for port_idx, timeline in enumerate(port_timelines):
         # Don't do anything for ports without definitions
@@ -176,7 +176,7 @@ def apply_LUTs(vips, q):
     """
     Set up amplitude and frequency/phase LUTs on the board.
     """
-    for p in range(8):
+    for p in range(vips.N_OUT_PORTS):
         port = p + 1
         for c in range(2):
             # Break apart our freq-phase pairs

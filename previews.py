@@ -66,49 +66,19 @@ def get_sequence_preview(vips, quant):
             if 'Sample' in pulse:
                 if preview_samples and preview_port in vips.store_ports:
                     sample_pulses.append(pulse)
-                else:
-                    continue
-            else:
-                pulse_port = pulse['Port']
-                if pulse_port != preview_port:
-                    continue
+                continue
 
-                # Get pulse's envelope
-                template_no = pulse['Template_no']
-                template_def = vips.template_defs[template_no - 1]
+            pulse_port = pulse['Port']
+            if pulse_port != preview_port:
+                continue
 
-                # If we have DRAG pulses on this port, get the modified envelopes
-                if 'DRAG_idx' in pulse:
-                    templ_x, _ = utils.template_def_to_points(template_def, preview_iter, q)
-                    templ_y = vips.drag_templates[pulse['DRAG_idx']][1]
-                else:
-                    templ_x, templ_y = utils.template_def_to_points(template_def, preview_iter, q)
-                if len(templ_y) == 0:
-                    continue
+            # Make a digitised version of the pulse
+            time, wave = construct_preview_pulse(vips, q, pulse, preview_iter)
 
-                # Get other relevant parameters
-                start_base, start_delta = pulse['Time']
-                time = start_base + start_delta * preview_iter
-                abs_time = utils.get_absolute_time(vips, start_base, start_delta, preview_iter)
-                p_amp, p_freq, p_phase = utils.get_amp_freq_phase(pulse, preview_iter)
-
-                # Calculate phase relative to latest carrier reset.
-                reset_time = -1
-                for (t, _, _) in vips.carrier_changes[pulse_port - 1]:
-                    if t > abs_time:
-                        break
-                    reset_time = t
-                p_phase = utils.phase_sync(p_freq, p_phase, abs_time - reset_time)
-                # Construct the pulse
-                if p_freq != 0 and pulse['Carrier'] != 0:
-                    carrier = np.sin(2*np.pi * p_freq * templ_x + np.pi*p_phase)
-                    templ_y = templ_y * carrier
-                wave = templ_y * p_amp
-
-                # Place it in the preview timeline
-                pulse_index = int(time * sampling_freq)
-                points_that_fit = len(preview_points[pulse_index:(pulse_index+len(wave))])
-                preview_points[pulse_index:(pulse_index + points_that_fit)] += wave[:points_that_fit]
+            # Place it in the preview timeline
+            pulse_index = int(time * sampling_freq)
+            points_that_fit = len(preview_points[pulse_index:(pulse_index+len(wave))])
+            preview_points[pulse_index:(pulse_index + points_that_fit)] += wave[:points_that_fit]
 
         # Display the sample windows
         for sample in sample_pulses:
@@ -133,3 +103,44 @@ def get_sequence_preview(vips, quant):
         times = np.linspace(0, period, len(preview_points))
 
     return quant.getTraceDict(preview_points, x=times, t0=times[0], dt=(times[1] - times[0]))
+
+
+def construct_preview_pulse(vips, q, pulse, iteration):
+    """
+    Construct a digitised pulse based on a pulse definition,
+    to be placed in the preview sequence.
+    """
+    # Get pulse's envelope
+    template_no = pulse['Template_no']
+    template_def = vips.template_defs[template_no - 1]
+
+    # If we have DRAG pulses on this port, get the modified envelopes
+    if 'DRAG_idx' in pulse:
+        templ_x, _ = utils.template_def_to_points(template_def, iteration, q)
+        templ_y = vips.drag_templates[pulse['DRAG_idx']][1]
+    else:
+        templ_x, templ_y = utils.template_def_to_points(template_def, iteration, q)
+    if len(templ_y) == 0:
+        return 0, []
+
+    # Get other relevant parameters
+    start_base, start_delta = pulse['Time']
+    time = start_base + start_delta * iteration
+    abs_time = utils.get_absolute_time(vips, start_base, start_delta, iteration)
+    p_amp, p_freq, p_phase = utils.get_amp_freq_phase(pulse, iteration)
+
+    # Calculate phase relative to latest carrier reset.
+    reset_time = -1
+    for (t, _, _) in vips.carrier_changes[pulse['Port'] - 1]:
+        if t > abs_time:
+            break
+        reset_time = t
+    p_phase = utils.phase_sync(p_freq, p_phase, abs_time - reset_time)
+
+    # Construct the pulse
+    if p_freq != 0 and pulse['Carrier'] != 0:
+        carrier = np.sin(2 * np.pi * p_freq * templ_x + np.pi * p_phase)
+        templ_y = templ_y * carrier
+    wave = templ_y * p_amp
+
+    return time, wave

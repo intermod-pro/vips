@@ -26,7 +26,7 @@ def get_all_pulse_defs(vips, q):
     pulse_definitions = []
 
     # Go through every port definition section one after another
-    for port in range(1, 9):
+    for port in range(1, vips.N_OUT_PORTS+1):
 
         settings = vips.port_settings[port - 1]
 
@@ -71,17 +71,17 @@ def create_pulse_defs(vips, port, def_idx, q):
 
     sweep_param = vips.getValue(f'Port {port} - def {def_idx} - Sweep param')
     if sweep_param == 'Amplitude scale':
-        amp = get_sweep_values(port, def_idx, )
+        amp = get_sweep_values(vips, port, def_idx)
     else:
         amp = vips.getValue(f'Port {port} - def {def_idx} - amp')
         amp = [amp] * vips.iterations
     if sweep_param == 'Carrier frequency':
-        freq = get_sweep_values(port, def_idx, )
+        freq = get_sweep_values(vips, port, def_idx)
     else:
         freq = vips.getValue(f'Port {port} - def {def_idx} - freq')
         freq = [freq] * vips.iterations
     if sweep_param == 'Phase':
-        phase = get_sweep_values(port, def_idx, )
+        phase = get_sweep_values(vips, port, def_idx)
     else:
         phase = vips.getValue(f'Port {port} - def {def_idx} - phase')
         phase = [phase] * vips.iterations
@@ -314,7 +314,7 @@ def get_sample_pulses(vips, q):
 
     # Check one port at a time
     sampling_ports = []
-    for port in range(1, 9):
+    for port in range(1, vips.N_IN_PORTS+1):
         use_port = vips.getValue(f'Sampling on port {port}')
         if use_port:
             sampling_ports.append(port)

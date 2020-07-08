@@ -16,7 +16,7 @@ def setup_sequence(vips, q):
     # The time at which the latest emitted pulse ended, for each port
     # Used to determine when to step in the LUTs, to ensure that all parameters are ready
     # before outputting the next pulse
-    latest_output = [0] * 8
+    latest_output = [0] * vips.N_OUT_PORTS
     setup_carriers(vips, q)
     for i in range(vips.iterations):
         vips.lgr.add_line(f'-- Iteration {i} --')
