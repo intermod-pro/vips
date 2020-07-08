@@ -8,6 +8,8 @@ import time
 class Logger:
     """
     ▗▞▚▞▚▞▚▞▚▞▚▞▚▞▚▞▚▞▚▞▚▖ DEBUG ▗▞▚▞▚▞▚▞▚▞▚▞▚▞▚▞▚▞▚▞▚▖
+    A class for constructing a log of timestamped messages.
+    Used by ViPS to log Vivace calls.
     """
 
     """
@@ -28,7 +30,6 @@ class Logger:
 
     def add_line(self, string):
         """
-        DEBUG:
         Add the given string as a line to the string that will be written to the log file.
         Also writes the current version of that string to the log file.
         """
@@ -46,8 +47,9 @@ class Logger:
 
     def initialise_log_file(self):
         """
-        DEBUG:
-        Empty the log file.
+        Create a new log file. In overwrite mode, any existing file with the given name has
+        its contents erased. If not in overwrite mode, a new file is created with a numerical suffix
+        to differentiate it from the old one.
         """
         if self.enable:
             filename = self.file_name
@@ -69,7 +71,6 @@ class Logger:
 
     def print_trigger_sequence(self, q):
         """
-        DEBUG:
         Print out the low-level instructions that are set up in Vivace.
         """
         if self.enable:

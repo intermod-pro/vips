@@ -1,5 +1,9 @@
 # Authored by Johan Blomberg and Gustav Grännsjö, 2020
 
+"""
+A collection of functions for generating specific envelope shapes.
+"""
+
 import numpy as np
 from scipy.stats import norm
 

@@ -1,5 +1,9 @@
 # Authored by Johan Blomberg and Gustav Grännsjö, 2020
 
+"""
+A collection of functions for processing various kinds of user input in ViPS.
+"""
+
 import re
 import math
 
@@ -61,15 +65,15 @@ def handle_input(quant, value):
     return value
 
 
-def is_value_new(labber_instance, quant, value):
+def is_value_new(vips, quant, value):
     """
     Check if the given value differs from the value stored in the given quant.
     """
-    current_value = labber_instance.getValue(quant.name)
+    current_value = vips.getValue(quant.name)
 
     # Combo quants have datatype 2
     if quant.datatype == 2 and isinstance(value, float):
-        current_value = labber_instance.getValueIndex(quant.name)
+        current_value = vips.getValueIndex(quant.name)
 
     # If it is a vector, we need to do a different equality test (because numpy does not work with == checks)
     if isinstance(value, dict):
