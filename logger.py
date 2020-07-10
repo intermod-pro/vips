@@ -36,10 +36,8 @@ class Logger:
         if self.enable:
             if self.new_log:
                 self.initialise_log_file()
-                self.new_log = False
-
-            if self.INITIAL_TIME is None:
                 self.INITIAL_TIME = time.time()
+                self.new_log = False
 
             directory = os.path.join(self.USER_DIR, self.DEBUG_PATH)
             with open(os.path.join(directory, f'{self.working_file_name}.txt'), 'a') as f:
