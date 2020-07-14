@@ -13,7 +13,7 @@ import input_handling
 import envelopes
 
 
-def get_template_defs(vips, q):
+def get_template_defs(vips):
     """
     Get the user-defined templates (consisting of shapes and durations).
     These are represented as dictionaries containing a 'Points' value representing the
@@ -30,13 +30,13 @@ def get_template_defs(vips, q):
 
         # Long drive templates are a special case
         if template_name == 'Long drive':
-            template = get_long_drive_definition(vips, def_idx, q.sampling_freq)
+            template = get_long_drive_definition(vips, def_idx, vips.sampling_freq)
         else:
             template = {}
             # Other types share a lot of behaviour
             duration = vips.getValue(f'Envelope template {def_idx}: duration')
             template['Duration'] = duration
-            n_points = int(round(duration * q.sampling_freq))
+            n_points = round(duration * vips.sampling_freq)
             use_padding = vips.getValue(f'Envelope template {def_idx}: use zero-padding')
             template['Points'] = get_template_points(vips, template_name, n_points, def_idx)
 
@@ -70,7 +70,7 @@ def get_long_drive_definition(vips, definition_idx, sampling_frequency):
             raise ValueError(f'The rise and fall durations in template {definition_idx} exceed the '
                              f'template\'s total duration!')
         template['Flank Duration'] = flank_duration
-        flank_points = int(round(flank_duration * sampling_frequency))
+        flank_points = round(flank_duration * sampling_frequency)
         # How many sigma we should cut off our gaussian at
         cutoff = 3.2
         # Rise

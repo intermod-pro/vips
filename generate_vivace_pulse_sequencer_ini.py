@@ -9,6 +9,7 @@ N_OUT_PORTS = 8
 MAX_TEMPLATES = 15
 CUSTOM_TEMPLATES = 4
 MAX_PULSE_DEFS = 16
+MAX_MATCHES = 5
 TEMPLATES = ['Square', 'Long drive', 'Sin2', 'SinP', 'Sinc', 'Triangle', 'Gaussian', 'Cool']
 TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
@@ -292,7 +293,7 @@ def section_sample():
     # Result values (readonly vectors, so they aren't visible)
     for i in range(1, N_IN_PORTS+1):
         gen.create_quant(f'Port {i}: Time trace', '', 'VECTOR', group, section)
-        gen.get_cmd('get_result')
+        gen.get_cmd('get_trace')
         gen.add_line('x_unit: s')
         gen.visibility(f'Sampling on port {i}', True)
         gen.show_in_measurement(True)
@@ -308,6 +309,65 @@ def section_sample():
         gen.get_cmd('template_preview')
         gen.add_line('x_unit: s')
         gen.visibility(f'Envelope template {template}: shape', *TEMPLATES)
+
+
+def section_matching():
+    section = 'Template matching'
+    group = 'General'
+
+    gen.create_quant('Number of matches', 'Number of matches', 'COMBO', group, section)
+    gen.combo_options(*range(MAX_MATCHES+1))
+
+    for m in range(1, MAX_MATCHES+1):
+        group = f'Matching {m}'
+
+        gen.create_quant(f'Template matching {m} - sampling I port', 'Sampling I port', 'COMBO', group, section)
+        gen.combo_options(*range(1, N_IN_PORTS + 1))
+        gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
+        gen.create_quant(f'Template matching {m} - sampling Q port', 'Sampling Q port', 'COMBO', group, section)
+        gen.combo_options('None', *range(1, N_IN_PORTS + 1))
+        gen.default('2')
+        gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
+
+        gen.create_quant(f'Template matching {m} - matching start time', 'Matching start time', 'DOUBLE', group, section)
+        gen.limits(low=0)
+        gen.unit('s')
+        gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES+1)])
+
+        gen.create_quant(f'Template matching {m} - matching duration', 'Matching duration', 'DOUBLE', group, section)
+        gen.limits(0, 1022e-9)
+        gen.unit('s')
+        gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
+
+        # TODO template selection here
+
+        gen.create_quant(f'Template matching {m} - pulse I port', 'Pulse I port', 'COMBO', group, section)
+        gen.combo_options(*range(1, N_IN_PORTS + 1))
+        gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
+        gen.create_quant(f'Template matching {m} - pulse Q port', 'Pulse Q port', 'COMBO', group, section)
+        gen.combo_options('None', *range(1, N_IN_PORTS + 1))
+        gen.default('2')
+        gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
+
+        gen.create_quant(f'Template matching {m} - pulse start time', 'Pulse start time', 'DOUBLE', group, section)
+        gen.limits(low=0)
+        gen.unit('s')
+        gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
+
+        gen.create_quant(f'Template matching {m} - pulse frequency', 'Pulse frequency', 'DOUBLE', group, section)
+        gen.unit('Hz')
+        gen.limits(0, 2E9)
+        gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
+
+        gen.create_quant(f'Template matching {m} - pulse phase', 'Pulse phase', 'DOUBLE', group, section)
+        gen.unit('PI rad')
+        gen.limits(0, 2)
+        gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
+
+        gen.create_quant(f'Template matching {m}: Results', '', 'VECTOR_COMPLEX', group, section)
+        gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
+        gen.get_cmd('get_match')
+        gen.permission('READ')
 
 
 def section_preview():
@@ -346,6 +406,7 @@ def section_preview():
     gen.set_cmd('not_affecting_board')
 
     gen.create_quant('Pulse sequence preview', '', 'VECTOR', group, section)
+    gen.get_cmd('sequence_preview')
     gen.permission('READ')
 
 
@@ -397,6 +458,9 @@ for p in range(1, N_OUT_PORTS+1):
 
 gen.big_comment('SAMPLING')
 section_sample()
+
+gen.big_comment('TEMPLATE MATCHING')
+section_matching()
 
 gen.big_comment('PREVIEW')
 section_preview()

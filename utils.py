@@ -8,7 +8,7 @@ import math
 import numpy as np
 
 
-def template_def_to_points(template_def, iteration, q):
+def template_def_to_points(vips, template_def, iteration):
     """
     Calculate X and Y point values for the given template definition and iteration.
     Return X, Y.
@@ -16,14 +16,14 @@ def template_def_to_points(template_def, iteration, q):
     if 'Rise Points' in template_def:  # Gauss long drive
         duration = template_def['Base'] + template_def['Delta'] * iteration
         rise_p = template_def['Rise Points']
-        n_long_points = int(round((duration - 2 * template_def['Flank Duration']) * q.sampling_freq))
+        n_long_points = round((duration - 2 * template_def['Flank Duration']) * vips.sampling_freq)
         if n_long_points >= 1e5:
             raise ValueError('Your long drive template is too long to preview, '
                              'it would take forever to create a list of >100 000 points!')
         long_p = np.linspace(1, 1, n_long_points)
         fall_p = template_def['Fall Points']
         total_points = len(rise_p) + n_long_points + len(fall_p)
-        end_point = (total_points - 1) / q.sampling_freq
+        end_point = (total_points - 1) / vips.sampling_freq
         x = np.linspace(0, end_point, total_points)
         y = np.concatenate((rise_p, long_p, fall_p))
         return x, y
@@ -32,11 +32,11 @@ def template_def_to_points(template_def, iteration, q):
         duration = template_def['Base'] + template_def['Delta'] * iteration
         if duration <= 0:
             return [], []
-        n_points = int(round(duration * q.sampling_freq))
+        n_points = round(duration * vips.sampling_freq)
         if n_points >= 1e5:
             raise ValueError('Your long drive template is too long to preview, '
                              'it would take forever to create a list of >100 000 points!')
-        end_point = (n_points - 1) / q.sampling_freq
+        end_point = (n_points - 1) / vips.sampling_freq
         x = np.linspace(0, end_point, n_points)
         y = np.linspace(1, 1, n_points)
         return x, y
@@ -44,7 +44,7 @@ def template_def_to_points(template_def, iteration, q):
     if template_def['Duration'] <= 0:
         return [], []
     y = template_def['Points']
-    end_point = (len(y) - 1) / q.sampling_freq
+    end_point = (len(y) - 1) / vips.sampling_freq
     x = np.linspace(0, end_point, len(y))
     return x, y
 

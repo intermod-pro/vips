@@ -14,6 +14,7 @@ import previews
 import pulses
 import templates
 import luts
+import template_matching
 import scheduling
 
 
@@ -52,7 +53,7 @@ class Driver(LabberDriver):
         # Get the relevant version numbers
         self.fetch_version_numbers()
 
-        self.sample_freq = None
+        self.sampling_freq = None
         self.averages = None
         self.measurement_period = None
         self.iterations = None
@@ -67,13 +68,15 @@ class Driver(LabberDriver):
         self.fp_matrix = None
         self.carrier_changes = None
         self.samples_per_iteration = None
+        self.template_matchings = None
+        self.match_results = None
 
         # Sample ports
         self.store_ports = None
 
         # Measurement output
         self.time_array = None
-        self.results = None
+        self.sampling_results = None
 
         # This list is used to keep track of the specific options used when getting traces in Labber
         self.previously_outputted_trace_configs = []
@@ -98,13 +101,15 @@ class Driver(LabberDriver):
         self.fp_matrix = None
         self.carrier_changes = None
         self.samples_per_iteration = None
+        self.template_matchings = None
+        self.match_results = None
 
         # Sample ports
         self.store_ports = None
 
         # Measurement output
         self.time_array = None
-        self.results = None
+        self.sampling_results = None
 
         self.previously_outputted_trace_configs = []
 
@@ -180,10 +185,10 @@ class Driver(LabberDriver):
         Return the requested time trace in the form of a Labber Trace Dict.
         """
 
-        if quant.get_cmd == 'get_result':
+        if quant.get_cmd == 'get_trace':
 
             # If we don't have any results, get some
-            if self.results is None:
+            if self.sampling_results is None:
                 self.perform_measurement()
 
             # See which trace we are getting
@@ -218,9 +223,18 @@ class Driver(LabberDriver):
                 dummy_y[1::2] = low_high
                 times = np.linspace(-1, 1, n_points * 2)
                 return quant.getTraceDict(dummy_y, x=times, t0=times[0], dt=(times[1] - times[0]))
+        if quant.get_cmd == 'get_match':
+            # If we don't have any matching data, get some
+            if self.match_results is None:
+                self.perform_measurement()
+
+            # TODO
+
+            return None
+
         if quant.get_cmd == 'template_preview':
             return previews.get_template_preview(self, quant)
-        if quant.name == 'Pulse sequence preview':
+        if quant.get_cmd == 'sequence_preview':
             return previews.get_sequence_preview(self, quant)
 
         return quant.getValue()
@@ -253,7 +267,7 @@ class Driver(LabberDriver):
             # If the user requests a window which doesn't have a trace, don't show anything
             return None
 
-        measurement = self.results[window_idx][output_idx]
+        measurement = self.sampling_results[window_idx][output_idx]
         return quant.getTraceDict(measurement, x=self.time_array, t0=self.time_array[0],
                                   dt=(self.time_array[1] - self.time_array[0]))
 
@@ -271,6 +285,9 @@ class Driver(LabberDriver):
             # Set up the full pulse on the board
             scheduling.setup_sequence(self, q)
 
+            # Schedule template matching
+            scheduling.setup_template_matches(self, q)
+
             # Start measuring
             total_time = self.measurement_period * (self.iterations + 1)
             self.lgr.add_line('q.perform_measurement()')
@@ -279,9 +296,22 @@ class Driver(LabberDriver):
                 # Store the results
                 (t_array, result) = output
                 self.time_array = list(t_array)
-                self.results = result
+                self.sampling_results = result
+                self.match_results = self.get_template_matching_results(q)
+                assert False, self.match_results
             else:
-                self.results = 'Dummy result'
+                self.sampling_results = 'Dummy result'
+
+    def get_template_matching_results(self, q):
+        """
+        Take the stored template matching information and feed it to Vivace to
+        request matching results.
+        """
+        matchings = []
+        for m in self.template_matchings:
+            matchings.extend([m[1], m[2]])
+
+        return q.get_template_matching_data(matchings)
 
     def setup_instrument(self, q):
         """
@@ -291,11 +321,11 @@ class Driver(LabberDriver):
         # Get debug information
         self.get_debug_settings()
 
-        self.sample_freq = q.sampling_freq
+        self.sampling_freq = q.sampling_freq
         # Get some general parameters such as no. of averages, trigger period etc.
         self.get_general_settings()
         # Get template definitions
-        self.template_defs = templates.get_template_defs(self, q)
+        self.template_defs = templates.get_template_defs(self)
         # Port settings
         self.port_settings = self.get_port_settings()
         # Set DC biases for all ports
@@ -313,6 +343,8 @@ class Driver(LabberDriver):
         self.validate_pulse_definitions()
         # Get the values that will go in the LUTs
         self.amp_matrix, self.fp_matrix, self.carrier_changes = luts.get_LUT_values(self)
+        # Get template matching data
+        self.template_matchings = template_matching.get_template_matching_definitions(self, q)
 
     def get_debug_settings(self):
         """
@@ -461,7 +493,7 @@ class Driver(LabberDriver):
                     self.pulse_definitions.insert(idx + 1, p_copy)
 
                     # Set up the old target pulse's template on the new port
-                    self.setup_template(q, port, p_copy['Carrier'], p_copy['Template_no'])
+                    pulses.setup_template(self, q, port, p_copy['Carrier'], p_copy['Template_no'])
 
                     # Step past the newly added pulse
                     idx += 2

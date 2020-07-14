@@ -168,14 +168,14 @@ def calculate_drag(vips, def_idx, time, port, template_no, amp, freq, phase, q):
     """
 
     sibling_port = int(vips.getValue(f'Port {port} - def {def_idx} - DRAG sibling port'))
-    times, points = utils.template_def_to_points(vips.template_defs[template_no - 1], 0, q)
+    times, points = utils.template_def_to_points(vips, vips.template_defs[template_no - 1], 0)
     scale = vips.getValue(f'Port {port} - def {def_idx} - DRAG scale')
     detuning = vips.getValue(f'Port {port} - def {def_idx} - DRAG detuning frequency')
     phase_shift = vips.getValue(f'Port {port} - def {def_idx} - DRAG phase shift')
 
     if (template_no, scale, detuning) not in vips.drag_parameters:
 
-        beta = scale * q.sampling_freq
+        beta = scale * vips.sampling_freq
 
         # Add the original envelope's gradient (scaled) as a complex part
         complex_points = points + 1j * beta * np.gradient(points)
