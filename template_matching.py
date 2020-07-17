@@ -82,7 +82,8 @@ def get_template_matching_definitions(vips, q):
         end_point = (len(envelope) - 1) / vips.sampling_freq
         x = np.linspace(0, end_point, len(envelope))
         carrier_base = np.sin(2 * np.pi * p_freq * x + np.pi * adjusted_phase)
-        phase_shift = vips.getValue(f'Port {pulse_copy_port} - phase shift')
+        # Only fetch the phase shift value if the copy port is used
+        phase_shift = vips.getValue(f'Port {pulse_copy_port} - phase shift') if pulse_copy_port != 0 else 0
         carrier_copy = np.sin(2 * np.pi * p_freq * x + np.pi * (adjusted_phase + phase_shift))
 
         # Modulate matching template with carrier
@@ -91,10 +92,13 @@ def get_template_matching_definitions(vips, q):
 
         vips.lgr.add_line(f'q.setup_template_matching_pair(port={sample_i_port}, template1={m_template_i})')
         matching_i = q.setup_template_matching_pair(sample_i_port, m_template_i)
-        vips.lgr.add_line(f'q.setup_template_matching_pair(port={sample_q_port}, template1={m_template_q})')
-        matching_q = q.setup_template_matching_pair(sample_q_port, m_template_q)
+        if pulse_copy_port != 0:
+            vips.lgr.add_line(f'q.setup_template_matching_pair(port={sample_q_port}, template1={m_template_q})')
+            matching_q = q.setup_template_matching_pair(sample_q_port, m_template_q)
+            matchings.append((matching_start, matching_i, matching_q))
+        else:
+            matchings.append((matching_start, matching_i, None))
 
-        matchings.append((matching_start, matching_i, matching_q))
 
     return matchings
 
@@ -115,7 +119,7 @@ def get_port_information(vips, matching_no):
         sample_q_port = int(sample_q_port)
 
     # Matching can only happen on ports with sampling activated
-    if sample_i_port not in vips.store_ports or sample_q_port not in vips.store_ports:
+    if sample_i_port not in vips.store_ports or sample_q_port not in [0, *vips.store_ports]:
         err_msg = f'Template matching {matching_no}: Sampling needs to be enabled on the ports set as sampling ports!'
         raise ValueError(err_msg)
 
@@ -126,7 +130,7 @@ def get_port_information(vips, matching_no):
         # If the sampling Q port is set to None, the output Q port has to match
         if sample_q_port != 0:
             err_msg = f'Template matching {matching_no}: The sampling Q port is defined, but the pulse Q port is set ' \
-                      f'to None. To template match on port {sample_q_port}, we need to know where the readout ' \
+                      f'to None. To template match on port {sample_q_port}, ViPS needs to know where the readout ' \
                       f'pulse is outputted.'
             raise ValueError(err_msg)
 
@@ -148,22 +152,32 @@ def get_port_information(vips, matching_no):
         err_msg = f'Template matching {matching_no}: sampling I and Q ports cannot have the same port number!'
         raise ValueError(err_msg)
 
-    if vips.port_settings[pulse_i_port-1]['Mode'] == 'Copy':
-        i_is_base = False
-        if vips.port_settings[pulse_i_port-1]['Sibling'] != pulse_q_port:
-            err_msg = f'Template matching {matching_no}: The pulse I port is not set up as a copy of the Q port! ' \
-                      f'The I port needs to be a copy of the Q port, or vice versa.'
+    if pulse_q_port != 0:
+        if vips.port_settings[pulse_i_port-1]['Mode'] == 'Copy':
+            i_is_base = False
+            if vips.port_settings[pulse_i_port-1]['Sibling'] != pulse_q_port:
+                err_msg = f'Template matching {matching_no}: The pulse I port is not set up as a copy of the Q port! ' \
+                          f'The I port needs to be a copy of the Q port, or vice versa.'
+                raise ValueError(err_msg)
+
+        elif vips.port_settings[pulse_q_port-1]['Mode'] == 'Copy':
+            i_is_base = True
+            if vips.port_settings[pulse_q_port-1]['Sibling'] != pulse_i_port:
+                err_msg = f'Template matching {matching_no}: The pulse Q port is not set up as a copy of the I port! ' \
+                          f'The Q port needs to be a copy of the I port, or vice versa.'
+                raise ValueError(err_msg)
+
+        else:
+            err_msg = f'Template matching {matching_no}: Neither the I nor Q pulse port is defined ' \
+                      f'as a copy of the other!'
             raise ValueError(err_msg)
 
-    elif vips.port_settings[pulse_q_port-1]['Mode'] == 'Copy':
-        i_is_base = True
-        if vips.port_settings[pulse_q_port-1]['Sibling'] != pulse_i_port:
-            err_msg = f'Template matching {matching_no}: The pulse Q port is not set up as a copy of the I port! ' \
-                      f'The Q port needs to be a copy of the I port, or vice versa.'
-            raise ValueError(err_msg)
-
+    # Q is set to None
     else:
-        err_msg = f'Template matching {matching_no}: Neither the I nor Q pulse port is defined as a copy of the other!'
-        raise ValueError(err_msg)
+        if vips.port_settings[pulse_i_port-1]['Mode'] == 'Disabled':
+            err_msg = f'Template matching {matching_no}: The pulse I port is set to Disabled!'
+            raise ValueError(err_msg)
+
+        i_is_base = True
 
     return sample_i_port, sample_q_port, pulse_i_port, pulse_q_port, i_is_base

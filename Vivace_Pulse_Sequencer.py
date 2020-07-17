@@ -223,14 +223,19 @@ class Driver(LabberDriver):
                 dummy_y[1::2] = low_high
                 times = np.linspace(-1, 1, n_points * 2)
                 return quant.getTraceDict(dummy_y, x=times, t0=times[0], dt=(times[1] - times[0]))
+
         if quant.get_cmd == 'get_match':
             # If we don't have any matching data, get some
             if self.match_results is None:
                 self.perform_measurement()
 
-            # TODO
+            # The index of the matching is the first character in the third word of the quant's name (minus 1)
+            match_idx = int(quant.name.split()[2][0])-1
+            row = self.match_results[match_idx]
 
-            return None
+            comp_vector = [np.complex(i, q) for (i, q) in zip(row[0], row[1])]
+
+            return quant.getTraceDict(comp_vector, x=range(len(comp_vector)), x0=0, dt=1)
 
         if quant.get_cmd == 'template_preview':
             return previews.get_template_preview(self, quant)
@@ -298,7 +303,6 @@ class Driver(LabberDriver):
                 self.time_array = list(t_array)
                 self.sampling_results = result
                 self.match_results = self.get_template_matching_results(q)
-                assert False, self.match_results
             else:
                 self.sampling_results = 'Dummy result'
 
@@ -309,9 +313,17 @@ class Driver(LabberDriver):
         """
         matchings = []
         for m in self.template_matchings:
-            matchings.extend([m[1], m[2]])
+            curr_match_results = []
+            curr_match_results.append(q.get_template_matching_data(m[1])[0])
+            if m[2] is not None:
+                curr_match_results.append(q.get_template_matching_data(m[2])[0])
+            else:
+                # If matching was only on one port, fill the other result array with zeroes
+                curr_match_results.append(np.zeros(len(curr_match_results[0])))
 
-        return q.get_template_matching_data(matchings)
+            matchings.append(curr_match_results)
+
+        return matchings
 
     def setup_instrument(self, q):
         """
@@ -473,7 +485,7 @@ class Driver(LabberDriver):
                 raise ValueError(f'Output port {port} is set to copy from port {target}, '
                                  f'which is either undefined or a copy!')
 
-            amp_shift = self.getValue(f'Port {port} - amplitude scale shift')
+            amp_shift = self.getValue(f'Port {port} - amplitude scale multiplier')
             phase_shift = self.getValue(f'Port {port} - phase shift')
 
             # Copy pulse defs

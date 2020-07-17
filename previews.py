@@ -16,26 +16,25 @@ def get_template_preview(vips, quant):
     Construct a wave based on the envelope template
     indicated by the given quant, and return it.
     """
-    with pulsed.Pulsed(ext_ref_clk=True, dry_run=True, address=vips.address) as q:
-        template_defs = templates.get_template_defs(vips)
-        # The template number X is the first character in the second word in "Template X: Preview"
-        template_no = int(quant.name.split()[1][0])
-        template_def = template_defs[template_no - 1]
-        x, y = utils.template_def_to_points(vips, template_def, 0)
+    template_defs = templates.get_template_defs(vips)
+    # The template number X is the first character in the second word in "Template X: Preview"
+    template_no = int(quant.name.split()[1][0])
+    template_def = template_defs[template_no - 1]
+    x, y = utils.template_def_to_points(vips, template_def, 0)
 
-        # Long drives can have length 0, which is returned as None
-        if len(x) > 0:
-            # Add a fake 0 at the end so the template looks nicer (squares get an extra 1 instead)
-            x = np.append(x, x[-1] + 1 / vips.sampling_freq)
-            if y[-1] != 1:
-                y = np.append(y, 0)
-            else:
-                y = np.append(y, 1)
-
-            return quant.getTraceDict(y, x=x, t0=x[0], dt=(x[1] - x[0]))
-
+    # Long drives can have length 0, which is returned as None
+    if len(x) > 0:
+        # Add a fake 0 at the end so the template looks nicer (squares get an extra 1 instead)
+        x = np.append(x, x[-1] + 1 / vips.sampling_freq)
+        if y[-1] != 1:
+            y = np.append(y, 0)
         else:
-            return None
+            y = np.append(y, 1)
+
+        return quant.getTraceDict(y, x=x, t0=x[0], dt=(x[1] - x[0]))
+
+    else:
+        return None
 
 
 def get_sequence_preview(vips, quant):

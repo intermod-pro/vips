@@ -13,7 +13,7 @@ MAX_MATCHES = 5
 TEMPLATES = ['Square', 'Long drive', 'Sin2', 'SinP', 'Sinc', 'Triangle', 'Gaussian', 'Cool']
 TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
-VERSION = '1.1.2'
+VERSION = '1.1.3'
 DRIVER_PATH = 'Vivace_Pulse_Sequencer'
 INTERFACE = 'TCPIP'
 
@@ -153,9 +153,9 @@ def section_port_sequence(port):
     gen.limits(-2, 2)
     gen.visibility(f'Port {port} - mode', 'Copy')
 
-    # If we copy, add the option for amplitude shifting
-    gen.create_quant(f'Port {port} - amplitude scale shift', 'Amplitude scale shift', 'DOUBLE', group, section)
-    gen.limits(-2, 2)
+    # If we copy, add the option for amplitude scale scaling
+    gen.create_quant(f'Port {port} - amplitude scale multiplier', 'Amplitude scale multiplier', 'DOUBLE', group, section)
+    gen.default(1)
     gen.visibility(f'Port {port} - mode', 'Copy')
 
     # DC shift
@@ -333,11 +333,14 @@ def section_matching():
         gen.limits(low=0)
         gen.unit('s')
         gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES+1)])
+        gen.tooltip('The time at which matching should start.')
 
         gen.create_quant(f'Template matching {m} - matching duration', 'Matching duration', 'DOUBLE', group, section)
         gen.limits(0, 1022e-9)
         gen.unit('s')
         gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
+        gen.tooltip('How long matching should last. '
+                    'Should ideally be equal to the duration of the pulse you match with.')
 
         # TODO template selection here
 
@@ -353,16 +356,22 @@ def section_matching():
         gen.limits(low=0)
         gen.unit('s')
         gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
+        gen.tooltip('The start time of the pulse you match with. '
+                    'Used to calculate phase sync for the matching template.')
 
         gen.create_quant(f'Template matching {m} - pulse frequency', 'Pulse frequency', 'DOUBLE', group, section)
         gen.unit('Hz')
         gen.limits(0, 2E9)
         gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
+        gen.tooltip('Frequency to modulate the matching template with. '
+                    'Should ideally be equal to the frequency of the pulse you match with.')
 
         gen.create_quant(f'Template matching {m} - pulse phase', 'Pulse phase', 'DOUBLE', group, section)
         gen.unit('PI rad')
         gen.limits(0, 2)
         gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
+        gen.tooltip('Phase offset to apply to the matching template. '
+                    'Should be equal to the phase offset of the pulse you match with.')
 
         gen.create_quant(f'Template matching {m}: Results', '', 'VECTOR_COMPLEX', group, section)
         gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])

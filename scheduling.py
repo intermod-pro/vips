@@ -137,14 +137,18 @@ def setup_template_matches(vips, q):
     """
     Tell Vivace to perform template matches.
     """
-    for i in vips.iterations:
+    for i in range(vips.iterations):
         for m in vips.template_matchings:
             m_time = utils.get_absolute_time(vips, m[0], 0, i)
             i_match = m[1]
             q_match = m[2]
 
-            vips.lgr.add_line(f'q.match(at_time={m_time}, [i={i_match}, q={q_match}])')
-            q.match(m_time, [i_match, q_match])
+            if q_match is not None:
+                vips.lgr.add_line(f'q.match(at_time={m_time}, [i={i_match}, q={q_match}])')
+                q.match(m_time, [i_match, q_match])
+            else:
+                vips.lgr.add_line(f'q.match(at_time={m_time}, match={i_match})')
+                q.match(m_time, i_match)
 
 
 def go_to_amp(vips, q, time, port, amp):
