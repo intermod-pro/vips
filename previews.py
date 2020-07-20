@@ -72,7 +72,7 @@ def get_sequence_preview(vips, quant):
                 continue
 
             # Make a digitised version of the pulse
-            time, wave = construct_preview_pulse(vips, q, pulse, preview_iter)
+            time, wave = construct_preview_pulse(vips, pulse, preview_iter)
 
             # Place it in the preview timeline
             pulse_index = int(time * sampling_freq)
@@ -104,7 +104,7 @@ def get_sequence_preview(vips, quant):
     return quant.getTraceDict(preview_points, x=times, t0=times[0], dt=(times[1] - times[0]))
 
 
-def construct_preview_pulse(vips, q, pulse, iteration):
+def construct_preview_pulse(vips, pulse, iteration):
     """
     Construct a digitised pulse based on a pulse definition,
     to be placed in the preview sequence.
@@ -138,7 +138,7 @@ def construct_preview_pulse(vips, q, pulse, iteration):
 
     # Construct the pulse
     if p_freq != 0 and pulse['Carrier'] != 0:
-        carrier = np.sin(2 * np.pi * p_freq * templ_x + np.pi * p_phase)
+        carrier = np.cos(2 * np.pi * p_freq * templ_x + np.pi * p_phase)
         templ_y = templ_y * carrier
     wave = templ_y * p_amp
 

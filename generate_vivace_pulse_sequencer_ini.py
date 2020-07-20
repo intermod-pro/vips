@@ -13,7 +13,7 @@ MAX_MATCHES = 5
 TEMPLATES = ['Square', 'Long drive', 'Sin2', 'SinP', 'Sinc', 'Triangle', 'Gaussian', 'Cool']
 TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
-VERSION = '1.1.3'
+VERSION = '1.1.4'
 DRIVER_PATH = 'Vivace_Pulse_Sequencer'
 INTERFACE = 'TCPIP'
 
@@ -332,11 +332,12 @@ def section_matching():
         gen.create_quant(f'Template matching {m} - matching start time', 'Matching start time', 'DOUBLE', group, section)
         gen.limits(low=0)
         gen.unit('s')
+        gen.set_cmd('quarter_nanos')
         gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES+1)])
         gen.tooltip('The time at which matching should start.')
 
         gen.create_quant(f'Template matching {m} - matching duration', 'Matching duration', 'DOUBLE', group, section)
-        gen.limits(0, 1022e-9)
+        gen.limits(0, 1020e-9)
         gen.unit('s')
         gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
         gen.tooltip('How long matching should last. '

@@ -81,10 +81,10 @@ def get_template_matching_definitions(vips, q):
         # Construct carriers to modulate template with
         end_point = (len(envelope) - 1) / vips.sampling_freq
         x = np.linspace(0, end_point, len(envelope))
-        carrier_base = np.sin(2 * np.pi * p_freq * x + np.pi * adjusted_phase)
+        carrier_base = np.cos(2 * np.pi * p_freq * x + np.pi * adjusted_phase)
         # Only fetch the phase shift value if the copy port is used
         phase_shift = vips.getValue(f'Port {pulse_copy_port} - phase shift') if pulse_copy_port != 0 else 0
-        carrier_copy = np.sin(2 * np.pi * p_freq * x + np.pi * (adjusted_phase + phase_shift))
+        carrier_copy = np.cos(2 * np.pi * p_freq * x + np.pi * (adjusted_phase + phase_shift))
 
         # Modulate matching template with carrier
         m_template_i = envelope * carrier_base if i_is_base else envelope * carrier_copy
@@ -98,7 +98,6 @@ def get_template_matching_definitions(vips, q):
             matchings.append((matching_start, matching_i, matching_q))
         else:
             matchings.append((matching_start, matching_i, None))
-
 
     return matchings
 

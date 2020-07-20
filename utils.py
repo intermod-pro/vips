@@ -89,4 +89,3 @@ def are_fp_pairs_close(tuptup1, tuptup2):
             math.isclose(tuptup1[0][1], tuptup2[0][1]) and
             math.isclose(tuptup1[1][0], tuptup2[1][0]) and
             math.isclose(tuptup1[1][1], tuptup2[1][1]))
-
