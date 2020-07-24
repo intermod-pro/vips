@@ -29,6 +29,8 @@ def get_template_matching_definitions(vips, q):
         pulse_copy_port = pulse_q_port if i_is_base else pulse_i_port
 
         matching_start = vips.getValue(f'Template matching {m} - matching start time')
+        padding_length = ((matching_start * 1e9) % 2) / 1e9
+        matching_start = matching_start - padding_length
         match_duration = vips.getValue(f'Template matching {m} - matching duration')
 
         pulse_start = vips.getValue(f'Template matching {m} - pulse start time')
@@ -77,6 +79,8 @@ def get_template_matching_definitions(vips, q):
 
         # Construct matching template
         envelope = np.ones(round(match_duration * vips.sampling_freq))
+        pad_points = int(padding_length * 4e9)
+        envelope = np.concatenate((np.zeros(pad_points), envelope))
 
         # Construct carriers to modulate template with
         end_point = (len(envelope) - 1) / vips.sampling_freq
@@ -95,9 +99,9 @@ def get_template_matching_definitions(vips, q):
         if pulse_copy_port != 0:
             vips.lgr.add_line(f'q.setup_template_matching_pair(port={sample_q_port}, template1={m_template_q})')
             matching_q = q.setup_template_matching_pair(sample_q_port, m_template_q)
-            matchings.append((matching_start, matching_i, matching_q))
+            matchings.append((matching_start, matching_i, matching_q, match_duration))
         else:
-            matchings.append((matching_start, matching_i, None))
+            matchings.append((matching_start, matching_i, None, match_duration))
 
     return matchings
 

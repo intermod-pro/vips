@@ -9,11 +9,11 @@ N_OUT_PORTS = 8
 MAX_TEMPLATES = 15
 CUSTOM_TEMPLATES = 4
 MAX_PULSE_DEFS = 16
-MAX_MATCHES = 5
+MAX_MATCHES = 8
 TEMPLATES = ['Square', 'Long drive', 'Sin2', 'SinP', 'Sinc', 'Triangle', 'Gaussian', 'Cool']
 TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
-VERSION = '1.1.4'
+VERSION = '1.1.5'
 DRIVER_PATH = 'Vivace_Pulse_Sequencer'
 INTERFACE = 'TCPIP'
 

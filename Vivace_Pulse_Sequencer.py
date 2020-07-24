@@ -314,9 +314,12 @@ class Driver(LabberDriver):
         matchings = []
         for m in self.template_matchings:
             curr_match_results = []
-            curr_match_results.append(q.get_template_matching_data(m[1])[0])
+            match1 = q.get_template_matching_data(m[1])[0]
+            # Divide the mach result by match duration (in ns) to normalise
+            curr_match_results.append(match1 / (m[3] * 1e9))
             if m[2] is not None:
-                curr_match_results.append(q.get_template_matching_data(m[2])[0])
+                match2 = q.get_template_matching_data(m[2])[0]
+                curr_match_results.append(match2 / (m[3] * 1e9))
             else:
                 # If matching was only on one port, fill the other result array with zeroes
                 curr_match_results.append(np.zeros(len(curr_match_results[0])))
