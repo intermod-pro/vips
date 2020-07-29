@@ -55,15 +55,9 @@ def setup_pulse(vips, iteration, latest_output, pulse, q):
         q.store(utils.get_absolute_time(vips, start_base, start_delta, iteration))
     else:
         port = pulse['Port']
-        carrier = pulse['Carrier']
         template_no = pulse['Template_no']
         template_def = vips.template_defs[template_no - 1]
-
-        # DRAG pulses have their templates stored in a special way
-        if 'DRAG_idx' in pulse:
-            template = vips.drag_templates[pulse['DRAG_idx']][0]
-        else:
-            template = vips.templates[port - 1][carrier - 1][template_no - 1]
+        template = vips.templates[pulse['Template_identifier']]
 
         # Check if template is a long drive. If so, we might need to update its duration
         if 'Base' in template_def:

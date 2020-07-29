@@ -8,6 +8,7 @@ import numpy as np
 
 import input_handling
 import utils
+from templates import TemplateIdentifier
 
 
 def get_next_pulse_id(vips):
@@ -59,10 +60,21 @@ def create_pulse_defs(vips, port, def_idx, q):
     template_no = int(vips.getValue(f'Port {port} - def {def_idx} - template'))
     carrier = get_carrier_index(vips.getValue(f'Port {port} - def {def_idx} - sine generator'))
 
+    cond1 = vips.getValue(f'Port {port} - def {def_idx} - Template matching condition 1')
+    cond1 = utils.combo_to_int(cond1)
+    cond2 = vips.getValue(f'Port {port} - def {def_idx} - Template matching condition 2')
+    cond2 = utils.combo_to_int(cond2)
+    if cond1 != 0 and cond1 == cond2:
+        raise ValueError(f'Pulse {def_idx} on port {port}: both output conditions are set '
+                         f'to the same value! Please set another value for the second condition,'
+                         f'or disable it.')
+
+    template_identifier = TemplateIdentifier(port, carrier, template_no, cond1, cond2)
+
     # Non-DRAG pulses can have their template set up normally
     if carrier != 3:
         try:
-            setup_template(vips, q, port, carrier, template_no)
+            setup_template(vips, q, template_identifier)
         except ValueError as err:
             if str(err).startswith("No template def"):
                 err_msg = f'Pulse definition {def_idx} on port {port} uses an undefined template!'
@@ -136,6 +148,7 @@ def create_pulse_defs(vips, port, def_idx, q):
                 'Port': port,
                 'Carrier': carrier,
                 'Template_no': template_no,
+                'Template_identifier': template_identifier,
                 'Amp': amp.copy(),
                 'Freq': freq.copy(),
                 'Phase': phase.copy()})
@@ -172,9 +185,10 @@ def calculate_drag(vips, def_idx, time, port, template_no, amp, freq, phase, q):
     scale = vips.getValue(f'Port {port} - def {def_idx} - DRAG scale')
     detuning = vips.getValue(f'Port {port} - def {def_idx} - DRAG detuning frequency')
     phase_shift = vips.getValue(f'Port {port} - def {def_idx} - DRAG phase shift')
+    cond1 = vips.getValue(f'Port {port} - def {def_idx} - Template matching condition 1')
+    cond2 = vips.getValue(f'Port {port} - def {def_idx} - Template matching condition 2')
 
-    if (template_no, scale, detuning) not in vips.drag_parameters:
-
+    if (template_no, scale, detuning, cond1, cond2) not in vips.drag_parameters:
         beta = scale * vips.sampling_freq
 
         # Add the original envelope's gradient (scaled) as a complex part
@@ -193,27 +207,54 @@ def calculate_drag(vips, def_idx, time, port, template_no, amp, freq, phase, q):
         vips.lgr.add_line(f'q.setup_template(port={port}, points={im_points}, carrier=2, use_scale=True)')
         vips.lgr.add_line(f'q.setup_template(port={sibling_port}, points={re_points}, carrier=1, use_scale=True)')
         vips.lgr.add_line(f'q.setup_template(port={sibling_port}, points={im_points}, carrier=2, use_scale=True)')
-        base_re_template = q.setup_template(port, re_points, 1, True)
-        base_im_template = q.setup_template(port, im_points, 2, True)
-        sibl_re_template = q.setup_template(sibling_port, re_points, 1, True)
-        sibl_im_template = q.setup_template(sibling_port, im_points, 2, True)
-        vips.drag_templates.append((base_re_template, re_points))
-        base_re_idx = len(vips.drag_templates) - 1
-        vips.drag_templates.append((base_im_template, im_points))
-        base_im_idx = len(vips.drag_templates) - 1
-        vips.drag_templates.append((sibl_re_template, re_points))
-        sibl_re_idx = len(vips.drag_templates) - 1
-        vips.drag_templates.append((sibl_im_template, im_points))
-        sibl_im_idx = len(vips.drag_templates) - 1
+        try:
+            base_re_template = q.setup_template(port, re_points, 1, True)
+            base_im_template = q.setup_template(port, im_points, 2, True)
+            sibl_re_template = q.setup_template(sibling_port, re_points, 1, True)
+            sibl_im_template = q.setup_template(sibling_port, im_points, 2, True)
+        except RuntimeError as error:
+            if error.args[0].startswith('Not enough templates on output'):
+                raise RuntimeError('There are more than 8 templates in use on a single carrier'
+                                   f'on port {port} or {sibling_port}!\n The limit was exceeded'
+                                   'while setting up a DRAG pulse on these ports.'
+                                   '(Templates longer than 1024 ns are split into multiple, '
+                                   'unless they are of type "Long drive")')
+
+        # We add 1000 to the base index to separate it from a normal definition index
+        param_idx = len(vips.drag_parameters)
+        base_re_idx = vips.DRAG_INDEX_OFFSET + param_idx * 4 + 0
+        base_im_idx = vips.DRAG_INDEX_OFFSET + param_idx * 4 + 1
+        sibl_re_idx = vips.DRAG_INDEX_OFFSET + param_idx * 4 + 2
+        sibl_im_idx = vips.DRAG_INDEX_OFFSET + param_idx * 4 + 3
+
+        # Prepare template identifiers to store the four templates under
+        base_re_ti = TemplateIdentifier(port,         1, base_re_idx, cond1, cond2)
+        base_im_ti = TemplateIdentifier(port,         2, base_im_idx, cond1, cond2)
+        sibl_re_ti = TemplateIdentifier(sibling_port, 1, sibl_re_idx, cond1, cond2)
+        sibl_im_ti = TemplateIdentifier(sibling_port, 2, sibl_im_idx, cond1, cond2)
+        vips.templates[base_re_ti] = base_re_template
+        vips.templates[base_im_ti] = base_im_template
+        vips.templates[sibl_re_ti] = sibl_re_template
+        vips.templates[sibl_im_ti] = sibl_im_template
+
+        # Also store the points that make up the templates, for preview purposes
+        vips.drag_templates.append(re_points)
+        vips.drag_templates.append(im_points)
+        vips.drag_templates.append(re_points)
+        vips.drag_templates.append(im_points)
+
+        # Add these parameters to the list
+        vips.drag_parameters.append((template_no, scale, detuning, cond1, cond2))
 
     # We've already made the necessary templates, find their index
     else:
-        match_idx = vips.drag_parameters.index((template_no, scale, detuning))
+        match_idx = vips.drag_parameters.index((template_no, scale, detuning, cond1, cond2))
 
-        base_re_idx = match_idx * 4 + 0
-        base_im_idx = match_idx * 4 + 1
-        sibl_re_idx = match_idx * 4 + 2
-        sibl_im_idx = match_idx * 4 + 3
+        # We add 1000 to the base index to separate it from a normal definition index
+        base_re_idx = vips.DRAG_INDEX_OFFSET + match_idx * 4 + 0
+        base_im_idx = vips.DRAG_INDEX_OFFSET + match_idx * 4 + 1
+        sibl_re_idx = vips.DRAG_INDEX_OFFSET + match_idx * 4 + 2
+        sibl_im_idx = vips.DRAG_INDEX_OFFSET + match_idx * 4 + 3
 
     # Create four pulse defs
     pulse_defs = []
@@ -239,12 +280,14 @@ def calculate_drag(vips, def_idx, time, port, template_no, amp, freq, phase, q):
             # Negative sine with pi/2 offset, so 3/2pi in total
             d_phase = [p + phase_shift + 3/2 for p in phase.copy()]
 
+        template_ident = TemplateIdentifier(d_port, d_carrier, d_idx, cond1, cond2)
         pulse_defs.append({
             'ID': get_next_pulse_id(vips),
             'Time': time,
             'Port': d_port,
             'Carrier': d_carrier,
             'Template_no': template_no,
+            'Template_identifier': template_ident,
             'DRAG_idx': d_idx,
             'Amp': amp.copy(),
             'Freq': freq.copy(),
@@ -254,17 +297,20 @@ def calculate_drag(vips, def_idx, time, port, template_no, amp, freq, phase, q):
     return pulse_defs
 
 
-def setup_template(vips, q, port, carrier, template_no):
+def setup_template(vips, q, template_identifier):
     """
     Set up the specified template on the specified port on the board.
     Store the template globally in the format given by Vivace.
     """
+    template_no = template_identifier.def_idx
     template_def = vips.template_defs[template_no - 1]
     # Check that the given template number has a definition
     if len(template_def) == 0:
         raise ValueError("No template def found!")
     # If the requested template has not already been set up for this port, do it.
-    if vips.templates[port - 1][carrier - 1][template_no - 1] is None:
+    if template_identifier not in vips.templates:
+        port = template_identifier.port
+        carrier = template_identifier.carrier
         try:
             # Only long drives have the 'Base' key
             if 'Base' in template_def:
@@ -286,18 +332,19 @@ def setup_template(vips, q, port, carrier, template_no):
                     if err.args[0].startswith('valid carriers'):
                         raise ValueError('Long drive envelopes have to be on either sine generator 1 or 2!')
                 if 'Flank Duration' in template_def:
-                    vips.templates[port - 1][carrier - 1][template_no - 1] = (rise_template, long_template, fall_template)
+                    vips.templates[template_identifier] = (rise_template, long_template, fall_template)
                 else:
-                    vips.templates[port - 1][carrier - 1][template_no - 1] = long_template
+                    vips.templates[template_identifier] = long_template
             else:
                 vips.lgr.add_line(f'q.setup_template(port={port}, points={template_def["Points"]}, carrier={carrier}, use_scale=True)')
-                vips.templates[port - 1][carrier - 1][template_no - 1] = q.setup_template(port,
-                                                                             template_def['Points'],
-                                                                             carrier,
-                                                                             use_scale=True)
+                vips.templates[template_identifier] = q.setup_template(port,
+                                                                       template_def['Points'],
+                                                                       carrier,
+                                                                       use_scale=True)
         except RuntimeError as error:
             if error.args[0].startswith('Not enough templates on output'):
-                raise RuntimeError(f'There are more than 16 templates in use on port {port}!\n '
+                raise RuntimeError(f'There are more than 8 templates in use on carrier {carrier}'
+                                   f'on port {port}!\n '
                                    '(Templates longer than 1024 ns are split into multiple, '
                                    'unless they are of type "Long drive")')
 

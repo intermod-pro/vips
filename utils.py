@@ -89,3 +89,14 @@ def are_fp_pairs_close(tuptup1, tuptup2):
             math.isclose(tuptup1[0][1], tuptup2[0][1]) and
             math.isclose(tuptup1[1][0], tuptup2[1][0]) and
             math.isclose(tuptup1[1][1], tuptup2[1][1]))
+
+
+def combo_to_int(value, replace_string='None', replace_with=0):
+    """
+    Used for the values of combo quants with numerical values and one string value.
+    The default use case is to replace the 'None' option with a 0.
+    """
+    if value == replace_string:
+        return int(replace_with)
+    else:
+        return int(value)

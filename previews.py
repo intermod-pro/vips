@@ -114,9 +114,10 @@ def construct_preview_pulse(vips, pulse, iteration):
     template_def = vips.template_defs[template_no - 1]
 
     # If we have DRAG pulses on this port, get the modified envelopes
-    if 'DRAG_idx' in pulse:
+    template_idx = pulse['Template_identifier'].def_idx
+    if template_idx >= vips.DRAG_INDEX_OFFSET:
         templ_x, _ = utils.template_def_to_points(vips, template_def, iteration)
-        templ_y = vips.drag_templates[pulse['DRAG_idx']][1]
+        templ_y = vips.drag_templates[template_idx - vips.DRAG_INDEX_OFFSET]
     else:
         templ_x, templ_y = utils.template_def_to_points(vips, template_def, iteration)
     if len(templ_y) == 0:

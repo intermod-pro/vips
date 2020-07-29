@@ -16,6 +16,7 @@ import templates
 import luts
 import template_matching
 import scheduling
+import conditionals
 
 
 class Driver(LabberDriver):
@@ -33,12 +34,15 @@ class Driver(LabberDriver):
     N_IN_PORTS = 8
     N_OUT_PORTS = 8
 
+    # Used to separate definition indices for normal and DRAG templates
+    DRAG_INDEX_OFFSET = 1000
+
     # Version numbers, will be fetched from Vivace and the ViPS definition
     vips_ver = None
     vivace_fw_ver = None
     vivace_server_ver = None
     vivace_api_ver = None
-    
+
     # Logger for debug purposes
     lgr = logger.Logger()
 
@@ -57,7 +61,7 @@ class Driver(LabberDriver):
         self.averages = None
         self.measurement_period = None
         self.iterations = None
-        self.templates = [[[None for _ in range(16)] for _ in range(2)] for _ in range(self.N_OUT_PORTS)]
+        self.templates = {}
         self.drag_templates = []
         self.drag_parameters = []
         self.template_defs = None
@@ -90,7 +94,7 @@ class Driver(LabberDriver):
         self.averages = None
         self.measurement_period = None
         self.iterations = None
-        self.templates = [[[None for _ in range(16)] for _ in range(2)] for _ in range(self.N_OUT_PORTS)]
+        self.templates = {}
         self.drag_templates = []
         self.drag_parameters = []
         self.template_defs = None
@@ -360,6 +364,8 @@ class Driver(LabberDriver):
         self.amp_matrix, self.fp_matrix, self.carrier_changes = luts.get_LUT_values(self)
         # Get template matching data
         self.template_matchings = template_matching.get_template_matching_definitions(self, q)
+        # Prepare conditional pulses
+        conditionals.setup_conditionals(self, q)
 
     def get_debug_settings(self):
         """
@@ -508,7 +514,11 @@ class Driver(LabberDriver):
                     self.pulse_definitions.insert(idx + 1, p_copy)
 
                     # Set up the old target pulse's template on the new port
-                    pulses.setup_template(self, q, port, p_copy['Carrier'], p_copy['Template_no'])
+                    p_ti = pulse['Template_identifier']
+                    new_template_identifier = templates.TemplateIdentifier(port, p_ti.carrier, p_ti.def_idx,
+                                                                       p_ti.cond1, p_ti.cond2)
+                    p_copy['Template_identifier'] = new_template_identifier
+                    pulses.setup_template(self, q, new_template_identifier)
 
                     # Step past the newly added pulse
                     idx += 2

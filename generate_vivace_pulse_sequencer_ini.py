@@ -13,7 +13,7 @@ MAX_MATCHES = 8
 TEMPLATES = ['Square', 'Long drive', 'Sin2', 'SinP', 'Sinc', 'Triangle', 'Gaussian', 'Cool']
 TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
-VERSION = '1.1.6'
+VERSION = '1.2.0'
 DRIVER_PATH = 'Vivace_Pulse_Sequencer'
 INTERFACE = 'TCPIP'
 
@@ -268,6 +268,19 @@ def section_port_sequence(port):
         gen.set_cmd('double_list')
         gen.visibility(f'Port {port} - def {i} - Sweep format', 'Custom')
 
+        # Conditionals
+        gen.create_quant(f'Port {port} - def {i} - Template matching condition 1',
+                         'Matching condition 1', 'COMBO', group, section)
+        gen.combo_options('None', *[str(j) for j in range(1, MAX_MATCHES+1)])
+        gen.tooltip('This pulse will only be outputted if the selected template matching yields a positive result.')
+        gen.visibility(f'Pulses for port {port}', *[str(j) for j in range(i, MAX_PULSE_DEFS + 1)])
+
+        gen.create_quant(f'Port {port} - def {i} - Template matching condition 2',
+                         'Matching condition 2', 'COMBO', group, section)
+        gen.combo_options('None', *[str(j) for j in range(1, MAX_MATCHES + 1)])
+        gen.tooltip('This pulse will only be outputted if both of the selected template matches yield a positive result.')
+        gen.visibility(f'Port {port} - def {i} - Template matching condition 1', *[str(j) for j in range(1, MAX_PULSE_DEFS + 1)])
+
 
 def section_sample():
     section = 'Sampling'
@@ -369,7 +382,7 @@ def section_matching():
 
         gen.create_quant(f'Template matching {m} - pulse phase', 'Pulse phase', 'DOUBLE', group, section)
         gen.unit('PI rad')
-        gen.limits(0, 2)
+        gen.limits(-2, 2)
         gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
         gen.tooltip('Phase offset to apply to the matching template. '
                     'Should be equal to the phase offset of the pulse you match with.')

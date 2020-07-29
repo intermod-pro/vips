@@ -13,6 +13,30 @@ import input_handling
 import envelopes
 
 
+class TemplateIdentifier:
+    """
+    Objects of this class are used to uniquely identify template definitions
+    set up in ViPS, before they are built in Vivace.
+    """
+    def __init__(self, port, carrier, def_idx, cond1, cond2):
+        self.port = port
+        self.carrier = carrier
+        self.def_idx = def_idx
+        self.cond1 = cond1
+        self.cond2 = cond2
+
+    def __get_tuple(self):
+        return self.port, self.carrier, self.def_idx, self.cond1, self.cond2
+
+    def __eq__(self, other):
+        if isinstance(other, TemplateIdentifier):
+            return self.__get_tuple() == other.__get_tuple()
+        return False
+
+    def __hash__(self):
+        return hash(self.__get_tuple())
+
+
 def get_template_defs(vips):
     """
     Get the user-defined templates (consisting of shapes and durations).

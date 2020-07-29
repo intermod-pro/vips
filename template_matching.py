@@ -116,10 +116,7 @@ def get_port_information(vips, matching_no):
     """
     sample_i_port = int(vips.getValue(f'Template matching {matching_no} - sampling I port'))
     sample_q_port = vips.getValue(f'Template matching {matching_no} - sampling Q port')
-    if sample_q_port == 'None':
-        sample_q_port = 0
-    else:
-        sample_q_port = int(sample_q_port)
+    sample_q_port = utils.combo_to_int(sample_q_port)
 
     # Matching can only happen on ports with sampling activated
     if sample_i_port not in vips.store_ports or sample_q_port not in [0, *vips.store_ports]:
@@ -128,8 +125,8 @@ def get_port_information(vips, matching_no):
 
     pulse_i_port = int(vips.getValue(f'Template matching {matching_no} - pulse I port'))
     pulse_q_port = vips.getValue(f'Template matching {matching_no} - pulse Q port')
-    if pulse_q_port == 'None':
-        pulse_q_port = 0
+    pulse_q_port = utils.combo_to_int(pulse_q_port)
+    if pulse_q_port == 0:
         # If the sampling Q port is set to None, the output Q port has to match
         if sample_q_port != 0:
             err_msg = f'Template matching {matching_no}: The sampling Q port is defined, but the pulse Q port is set ' \
@@ -138,7 +135,6 @@ def get_port_information(vips, matching_no):
             raise ValueError(err_msg)
 
     else:
-        pulse_q_port = int(pulse_q_port)
         # Pulse Q is defined, so sampling Q port also has to be
         if sample_q_port == 0:
             err_msg = f'Template matching {matching_no}: The pulse Q port is defined, but the sampling Q port is set ' \
