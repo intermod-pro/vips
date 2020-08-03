@@ -7,13 +7,15 @@ FILENAME = 'Vivace_Pulse_Sequencer.ini'
 N_IN_PORTS = 8
 N_OUT_PORTS = 8
 MAX_TEMPLATES = 15
-CUSTOM_TEMPLATES = 4
+CUSTOM_TEMPLATES = 8
 MAX_PULSE_DEFS = 16
 MAX_MATCHES = 8
 TEMPLATES = ['Square', 'Long drive', 'Sin2', 'SinP', 'Sinc', 'Triangle', 'Gaussian', 'Cool']
 TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
+MATCH_TEMPLATES = ['Square', 'Sin2', 'Triangle']
+MATCH_TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
-VERSION = '1.2.0'
+VERSION = '1.2.1'
 DRIVER_PATH = 'Vivace_Pulse_Sequencer'
 INTERFACE = 'TCPIP'
 
@@ -333,6 +335,16 @@ def section_matching():
 
     for m in range(1, MAX_MATCHES+1):
         group = f'Matching {m}'
+
+        gen.create_quant(f'Template matching {m} - template 1', 'Template 1', 'COMBO', group, section)
+        gen.combo_options(*MATCH_TEMPLATES)
+        gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
+        gen.tooltip('The template to match against. '
+                    'The envelope given will be modulated with the frequency you specify further below.')
+        gen.create_quant(f'Template matching {m} - template 2', 'Template 2', 'COMBO', group, section)
+        gen.combo_options('Zeroes', *MATCH_TEMPLATES)
+        gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
+        gen.tooltip('This optional template will be used for comparison with the first template.')
 
         gen.create_quant(f'Template matching {m} - sampling I port', 'Sampling I port', 'COMBO', group, section)
         gen.combo_options(*range(1, N_IN_PORTS + 1))

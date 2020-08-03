@@ -6,6 +6,7 @@ A collection of functions for setting up template matching.
 
 import numpy as np
 
+import templates
 import utils
 
 
@@ -27,6 +28,9 @@ def get_template_matching_definitions(vips, q):
          i_is_base) = get_port_information(vips, m)
         pulse_base_port = pulse_i_port if i_is_base else pulse_q_port
         pulse_copy_port = pulse_q_port if i_is_base else pulse_i_port
+
+        envelope1 = vips.getValue(f'Template matching {m} - template 1')
+        envelope2 = vips.getValue(f'Template matching {m} - template 2')
 
         matching_start = vips.getValue(f'Template matching {m} - matching start time')
         padding_length = ((matching_start * 1e9) % 2) / 1e9
@@ -78,27 +82,34 @@ def get_template_matching_definitions(vips, q):
             raise ValueError(err_msg)
 
         # Construct matching template
-        envelope = np.ones(round(match_duration * vips.sampling_freq))
+        n_points = round(match_duration * vips.sampling_freq)
+        envelope1 = templates.get_template_points(vips, envelope1, n_points, 0)
+        envelope2 = templates.get_template_points(vips, envelope2, n_points, 0)
         pad_points = int(padding_length * 4e9)
-        envelope = np.concatenate((np.zeros(pad_points), envelope))
+        envelope1 = np.concatenate((np.zeros(pad_points), envelope1))
+        envelope2 = np.concatenate((np.zeros(pad_points), envelope2))
 
         # Construct carriers to modulate template with
-        end_point = (len(envelope) - 1) / vips.sampling_freq
-        x = np.linspace(0, end_point, len(envelope))
+        end_point = (len(envelope1) - 1) / vips.sampling_freq
+        x = np.linspace(0, end_point, len(envelope1))
         carrier_base = np.cos(2 * np.pi * p_freq * x + np.pi * adjusted_phase)
         # Only fetch the phase shift value if the copy port is used
         phase_shift = vips.getValue(f'Port {pulse_copy_port} - phase shift') if pulse_copy_port != 0 else 0
         carrier_copy = np.cos(2 * np.pi * p_freq * x + np.pi * (adjusted_phase + phase_shift))
 
         # Modulate matching template with carrier
-        m_template_i = envelope * carrier_base if i_is_base else envelope * carrier_copy
-        m_template_q = envelope * carrier_copy if i_is_base else envelope * carrier_base
+        m_template_i1 = envelope1 * carrier_base if i_is_base else envelope1 * carrier_copy
+        m_template_i2 = envelope2 * carrier_base if i_is_base else envelope2 * carrier_copy
+        m_template_q1 = envelope1 * carrier_copy if i_is_base else envelope1 * carrier_base
+        m_template_q2 = envelope2 * carrier_copy if i_is_base else envelope2 * carrier_base
 
-        vips.lgr.add_line(f'q.setup_template_matching_pair(port={sample_i_port}, template1={m_template_i})')
-        matching_i = q.setup_template_matching_pair(sample_i_port, m_template_i)
+        vips.lgr.add_line(f'q.setup_template_matching_pair(port={sample_i_port}, '
+                          f'template1={m_template_i1}, template2={m_template_i2})')
+        matching_i = q.setup_template_matching_pair(sample_i_port, m_template_i1, m_template_i2)
         if pulse_copy_port != 0:
-            vips.lgr.add_line(f'q.setup_template_matching_pair(port={sample_q_port}, template1={m_template_q})')
-            matching_q = q.setup_template_matching_pair(sample_q_port, m_template_q)
+            vips.lgr.add_line(f'q.setup_template_matching_pair(port={sample_q_port}, '
+                              f'template1={m_template_q1}, template2={m_template_q2})')
+            matching_q = q.setup_template_matching_pair(sample_q_port, m_template_q1, m_template_q2)
             matchings.append((matching_start, matching_i, matching_q, match_duration))
         else:
             matchings.append((matching_start, matching_i, None, match_duration))

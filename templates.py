@@ -116,6 +116,8 @@ def get_template_points(vips, template_name, n_points, definition_idx):
     Return an n_points long list of points forming the shape corresponding to the given template_name.
     definition_idx is needed to fetch extra user-set parameters for certain templates (like the p in sinP).
     """
+    if template_name == 'Zeroes':
+        return np.zeros(n_points)
     if template_name == 'Square':
         return np.ones(n_points+1)[:-1]
     if template_name == 'SinP':
