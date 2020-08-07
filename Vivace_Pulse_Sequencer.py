@@ -67,6 +67,7 @@ class Driver(LabberDriver):
         self.template_defs = None
         self.port_settings = None
         self.pulse_definitions = None
+        self.sample_windows = None
         self.pulse_id_counter = 0
         self.amp_matrix = None
         self.fp_matrix = None
@@ -100,6 +101,7 @@ class Driver(LabberDriver):
         self.template_defs = None
         self.port_settings = None
         self.pulse_definitions = None
+        self.sample_windows = None
         self.pulse_id_counter = 0
         self.amp_matrix = None
         self.fp_matrix = None
@@ -352,8 +354,7 @@ class Driver(LabberDriver):
         # Pulse definitions
         self.pulse_definitions = pulses.get_all_pulse_defs(self, q)
         # Sampling
-        sample_definitions = pulses.get_sample_pulses(self, q)
-        self.pulse_definitions.extend(sample_definitions)
+        self.sample_windows = pulses.get_sample_windows(self, q)
         # Copy pulse definitions on specified ports
         self.copy_defs(q)
         # Sort our definitions chronologically
@@ -436,7 +437,7 @@ class Driver(LabberDriver):
             prev_carrier = -1
             prev_amp = 0
             for it in range(self.iterations):
-                for pulse in [p for p in self.pulse_definitions if 'Sample' not in p]:
+                for pulse in self.pulse_definitions:
                     overlap_error = False
                     if pulse['Port'] != p+1:
                         continue
@@ -502,9 +503,7 @@ class Driver(LabberDriver):
             while idx < len(self.pulse_definitions):
                 pulse = self.pulse_definitions[idx]
                 # Sample pulse definitions do not have a Port value, so they should be ignored
-                if ('Sample' not in pulse
-                        and pulse['Port'] == target
-                        and 'DRAG_idx' not in pulse):
+                if pulse['Port'] == target and 'DRAG_idx' not in pulse:
                     # Copy every pulse, but update the output port and apply shifts.
                     p_copy = pulse.copy()
                     p_copy['ID'] = pulses.get_next_pulse_id(self)

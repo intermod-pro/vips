@@ -59,14 +59,7 @@ def get_sequence_preview(vips, quant):
         # The preview will take the form of a list of points, with length determined by trigger period
         sampling_freq = int(vips.sampling_freq)
         preview_points = np.zeros(int(sampling_freq * period) + 1)
-        sample_pulses = []
         for pulse in vips.pulse_definitions:
-            # Sample pulses will be handled separately
-            if 'Sample' in pulse:
-                if preview_samples and preview_port in vips.store_ports:
-                    sample_pulses.append(pulse)
-                continue
-
             pulse_port = pulse['Port']
             if pulse_port != preview_port:
                 continue
@@ -80,14 +73,15 @@ def get_sequence_preview(vips, quant):
             preview_points[pulse_index:(pulse_index + points_that_fit)] += wave[:points_that_fit]
 
         # Display the sample windows
-        for sample in sample_pulses:
-            start_base, start_delta = sample['Time']
-            start = start_base + start_delta * preview_iter
-            duration = vips.getValue('Sampling - duration')
-            wave = np.linspace(-0.1, -0.1, duration * sampling_freq)
-            window_index = int(start * sampling_freq)
-            points_that_fit = len(preview_points[window_index:(window_index+len(wave))])
-            preview_points[window_index:(window_index + len(wave))] = wave[:points_that_fit]
+        if preview_samples and preview_port in vips.store_ports:
+            for window in vips.sample_windows:
+                start_base, start_delta = window['Time']
+                start = start_base + start_delta * preview_iter
+                duration = vips.getValue('Sampling - duration')
+                wave = np.linspace(-0.1, -0.1, duration * sampling_freq)
+                window_index = int(start * sampling_freq)
+                points_that_fit = len(preview_points[window_index:(window_index+len(wave))])
+                preview_points[window_index:(window_index + len(wave))] = wave[:points_that_fit]
 
     vips.reset_instrument()
     if use_slice:

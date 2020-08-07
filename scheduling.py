@@ -18,10 +18,12 @@ def setup_sequence(vips, q):
     # before outputting the next pulse
     latest_output = [0] * vips.N_OUT_PORTS
     setup_carriers(vips, q)
-    for i in range(vips.iterations):
-        vips.lgr.add_line(f'-- Iteration {i} --')
+    for iter in range(vips.iterations):
+        vips.lgr.add_line(f'-- Iteration {iter} --')
         for pulse in vips.pulse_definitions:
-            latest_output = setup_pulse(vips, i, latest_output, pulse, q)
+            latest_output = setup_pulse(vips, iter, latest_output, pulse, q)
+        for window in vips.sample_windows:
+            setup_sample_window(vips, window, iter, q)
 
 
 def setup_carriers(vips, q):
@@ -46,45 +48,49 @@ def setup_carriers(vips, q):
 def setup_pulse(vips, iteration, latest_output, pulse, q):
     """
     Called from setup_sequence(). This function handles all the setup of a single pulse definition.
-    Returns latest_output, which is the time at which this pulse ends (unless it is a sample pulse,
-    in which case the given latest output is returned)
+    Returns latest_output, which is the time at which this pulse ends
     """
-    if 'Sample' in pulse:
-        start_base, start_delta = pulse['Time']
-        vips.lgr.add_line(f'q.store(time={utils.get_absolute_time(vips, start_base, start_delta, iteration)})')
-        q.store(utils.get_absolute_time(vips, start_base, start_delta, iteration))
+    port = pulse['Port']
+    template_no = pulse['Template_no']
+    template_def = vips.template_defs[template_no - 1]
+    template = vips.templates[pulse['Template_identifier']]
+
+    # Check if template is a long drive. If so, we might need to update its duration
+    if 'Base' in template_def:
+        (dur_base, dur_delta) = template_def['Base'], template_def['Delta']
+        duration = dur_base + dur_delta * iteration
+        set_long_duration(vips, template_def, template, duration)
     else:
-        port = pulse['Port']
-        template_no = pulse['Template_no']
-        template_def = vips.template_defs[template_no - 1]
-        template = vips.templates[pulse['Template_identifier']]
+        duration = template_def['Duration']
 
-        # Check if template is a long drive. If so, we might need to update its duration
-        if 'Base' in template_def:
-            (dur_base, dur_delta) = template_def['Base'], template_def['Delta']
-            duration = dur_base + dur_delta * iteration
-            set_long_duration(vips, template_def, template, duration)
-        else:
-            duration = template_def['Duration']
+    # Get pulse parameters
+    start_base, start_delta = pulse['Time']
+    time = utils.get_absolute_time(vips, start_base, start_delta, iteration)
+    p_amp, p_freq, p_phase = utils.get_amp_freq_phase(pulse, iteration)
 
-        # Get pulse parameters
-        start_base, start_delta = pulse['Time']
-        time = utils.get_absolute_time(vips, start_base, start_delta, iteration)
-        p_amp, p_freq, p_phase = utils.get_amp_freq_phase(pulse, iteration)
+    # Step to the pulse's parameters in the LUTs
+    go_to_amp(vips, q, latest_output[port - 1], port, p_amp)
 
-        # Step to the pulse's parameters in the LUTs
-        go_to_amp(vips, q, latest_output[port - 1], port, p_amp)
-
-        # Set up the actual pulse command on the board
-        output_pulse(vips, time, duration, template, template_def, q)
-        # Store the time at which this pulse ended
-        latest_output[port - 1] = time + duration
-        # Check that we haven't exceeded trigger period length
-        period_end_time = utils.get_absolute_time(vips, vips.measurement_period, 0, iteration)
-        if latest_output[port - 1] >= period_end_time:
-            raise ValueError(f'A pulse on port {port} ends after the end '
-                             f'of the trigger period in iteration {iteration + 1}!')
+    # Set up the actual pulse command on the board
+    output_pulse(vips, time, duration, template, template_def, q)
+    # Store the time at which this pulse ended
+    latest_output[port - 1] = time + duration
+    # Check that we haven't exceeded trigger period length
+    period_end_time = utils.get_absolute_time(vips, vips.measurement_period, 0, iteration)
+    if latest_output[port - 1] >= period_end_time:
+        raise ValueError(f'A pulse on port {port} ends after the end '
+                         f'of the trigger period in iteration {iteration + 1}!')
     return latest_output
+
+
+def setup_sample_window(vips, window, iteration, q):
+    """
+    Called from setup_sequence(). Sets up a sample window in Vivace,
+    based on the given window definition.
+    """
+    start_base, start_delta = window['Time']
+    vips.lgr.add_line(f'q.store(time={utils.get_absolute_time(vips, start_base, start_delta, iteration)})')
+    q.store(utils.get_absolute_time(vips, start_base, start_delta, iteration))
 
 
 def set_long_duration(vips, template_def, template, duration):

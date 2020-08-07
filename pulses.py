@@ -349,12 +349,12 @@ def setup_template(vips, q, template_identifier):
                                    'unless they are of type "Long drive")')
 
 
-def get_sample_pulses(vips, q):
+def get_sample_windows(vips, q):
     """
-    Set up the user-defined sample pulses on the board.
+    Set up the user-defined sample windows on the board.
     These are stored in a dictionary format, with the following entries:
-        Time: The pulse's starting time, given as the tuple (base, delta).
-        Sample: Always set to True. Only used as a flag to identify this pulse as a sample pulse.
+        ID: The window's pulse ID.
+        Time: The window's starting time, given as the tuple (base, delta).
     Return a list of these dictionaries.
     """
     sample_definitions = []
@@ -398,8 +398,7 @@ def get_sample_pulses(vips, q):
 
         sample_definitions.append({
             'ID': p_id,
-            'Time': time,
-            'Sample': True})
+            'Time': time})
 
     return sample_definitions
 

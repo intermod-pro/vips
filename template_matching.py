@@ -46,15 +46,14 @@ def get_template_matching_definitions(vips, q):
         # Matching can only happen within sampling windows
         for i in range(vips.iterations):
             within_window = False
-            for pulse in vips.pulse_definitions:
-                if 'Sample' in pulse:
-                    abs_match_start = utils.get_absolute_time(vips, matching_start, 0, i)
-                    abs_window_start = utils.get_absolute_time(vips, pulse['Time'][0], pulse['Time'][1], i)
+            for window in vips.sample_windows:
+                abs_match_start = utils.get_absolute_time(vips, matching_start, 0, i)
+                abs_window_start = utils.get_absolute_time(vips, window['Time'][0], window['Time'][1], i)
 
-                    if (abs_match_start >= abs_window_start
-                            and abs_match_start + match_duration <= abs_window_start + window_duration):
-                        within_window = True
-                        break
+                if (abs_match_start >= abs_window_start
+                        and abs_match_start + match_duration <= abs_window_start + window_duration):
+                    within_window = True
+                    break
 
             if not within_window:
                 # Matching was not within any sampling window
@@ -66,7 +65,7 @@ def get_template_matching_definitions(vips, q):
         adjusted_phase = None
 
         for pulse in vips.pulse_definitions:
-            if 'Sample' in pulse or pulse['Port'] != pulse_base_port:
+            if pulse['Port'] != pulse_base_port:
                 continue
 
             if pulse['Freq'][0] == p_freq:

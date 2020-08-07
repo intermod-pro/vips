@@ -1,16 +1,12 @@
 # Authored by Johan Blomberg and Gustav Grännsjö, 2020
 
 """
-Function for managing the setup of conditional pulses
+A function for managing the setup of conditional pulses.
 """
 
 
 def setup_conditionals(vips, q):
     for pulse in vips.pulse_definitions:
-        # Sample pulses can't be conditional
-        if 'Sample' in pulse:
-            continue
-
         p_ti = pulse['Template_identifier']
         cond1 = p_ti.cond1
         cond2 = p_ti.cond2

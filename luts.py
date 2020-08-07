@@ -19,12 +19,12 @@ def get_LUT_values(vips):
     so that the board will only ever need to step once in the LUT between pulses.
     Return two matrices: one for the amplitude scale values and one for tuples of frequency and phase values.
     """
-    # Sample pulses are not relevant here, so take them out of the definition list
-    pulse_definitions_no_samples = [pulse for pulse in vips.pulse_definitions if 'Sample' not in pulse]
+    # Copy the original pulse def list
+    pulse_defs_copy = [pulse for pulse in vips.pulse_definitions]
 
     # Divide the pulses by the port they're on
     port_timelines = [[] for _ in range(vips.N_OUT_PORTS)]
-    for pulse in pulse_definitions_no_samples:
+    for pulse in pulse_defs_copy:
         p_port_idx = pulse['Port'] - 1
         port_timelines[p_port_idx].append(pulse)
 
