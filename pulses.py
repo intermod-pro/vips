@@ -186,7 +186,9 @@ def calculate_drag(vips, def_idx, time, port, template_no, amp, freq, phase, q):
     detuning = vips.getValue(f'Port {port} - def {def_idx} - DRAG detuning frequency')
     phase_shift = vips.getValue(f'Port {port} - def {def_idx} - DRAG phase shift')
     cond1 = vips.getValue(f'Port {port} - def {def_idx} - Template matching condition 1')
+    cond1 = utils.combo_to_int(cond1)
     cond2 = vips.getValue(f'Port {port} - def {def_idx} - Template matching condition 2')
+    cond2 = utils.combo_to_int(cond2)
 
     if (template_no, scale, detuning, cond1, cond2) not in vips.drag_parameters:
         beta = scale * vips.sampling_freq
