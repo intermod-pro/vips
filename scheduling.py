@@ -140,15 +140,14 @@ def setup_template_matches(vips, q):
     matches_by_time = {}
     for m in vips.template_matchings:
         if m[0] not in matches_by_time:
-            matches_by_time[m[0]] = [m[1]]
+            matches_by_time[m[0]] = []
+        if m[2] is None:
+            matches_by_time[m[0]].extend([m[1], m[3]])
         else:
-            matches_by_time[m[0]].append(m[1])
-        if m[2] is not None:
-            matches_by_time[m[0]].append(m[2])
+            matches_by_time[m[0]].extend([m[1], m[2], m[3], m[4]])
 
     for i in range(vips.iterations):
         for start_time in matches_by_time:
-
             abs_time = utils.get_absolute_time(vips, start_time, 0, i)
             vips.lgr.add_line(f'q.match(at_time={abs_time}, match_defs={matches_by_time[start_time]})')
             q.match(abs_time, matches_by_time[start_time])

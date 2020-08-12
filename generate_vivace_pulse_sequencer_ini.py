@@ -15,7 +15,7 @@ TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 MATCH_TEMPLATES = ['Square', 'Sin2', 'Triangle']
 MATCH_TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
-VERSION = '1.2.3'
+VERSION = '1.2.4'
 DRIVER_PATH = 'Vivace_Pulse_Sequencer'
 INTERFACE = 'TCPIP'
 
@@ -341,10 +341,11 @@ def section_matching():
         gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
         gen.tooltip('The template to match against. '
                     'The envelope given will be modulated with the frequency you specify further below.')
-        gen.create_quant(f'Template matching {m} - template 2', 'Template 2', 'COMBO', group, section)
-        gen.combo_options('Zeroes', *MATCH_TEMPLATES)
-        gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
-        gen.tooltip('This optional template will be used for comparison with the first template.')
+        # TODO
+        #gen.create_quant(f'Template matching {m} - template 2', 'Template 2', 'COMBO', group, section)
+        #gen.combo_options('Zeroes', *MATCH_TEMPLATES)
+        #gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
+        #gen.tooltip('This optional template will be used for comparison with the first template.')
 
         gen.create_quant(f'Template matching {m} - sampling I port', 'Sampling I port', 'COMBO', group, section)
         gen.combo_options(*range(1, N_IN_PORTS + 1))
@@ -367,8 +368,6 @@ def section_matching():
         gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
         gen.tooltip('How long matching should last. '
                     'Should ideally be equal to the duration of the pulse you match with.')
-
-        # TODO template selection here
 
         gen.create_quant(f'Template matching {m} - pulse I port', 'Pulse I port', 'COMBO', group, section)
         gen.combo_options(*range(1, N_IN_PORTS + 1))
@@ -398,6 +397,27 @@ def section_matching():
         gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
         gen.tooltip('Phase offset to apply to the matching template. '
                     'Should be equal to the phase offset of the pulse you match with.')
+
+        gen.create_quant(f'Template matching {m} - Q port phase adjustment', 'Q port phase adjustment',
+                         'DOUBLE', group, section)
+        gen.unit('PI rad')
+        gen.limits(-2, 2)
+        gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
+        gen.tooltip('This value will be added to the Q port\'s phase to account for phase shifts caused by the mixers.')
+
+        gen.create_quant(f'Template matching {m} - I port amplitude scale multiplier', 'I port amplitude scale multiplier',
+                         'DOUBLE', group, section)
+        gen.default(1)
+        gen.limits(0, 1)
+        gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
+        gen.tooltip('This value will be used to scale the matching template to the amplitude of the I port\'s output.')
+        gen.create_quant(f'Template matching {m} - Q port amplitude scale multiplier',
+                         'Q port amplitude scale multiplier',
+                         'DOUBLE', group, section)
+        gen.default(1)
+        gen.limits(0, 1)
+        gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
+        gen.tooltip('This value will be used to scale the matching template to the amplitude of the Q port\'s output.')
 
         gen.create_quant(f'Template matching {m}: Results', '', 'VECTOR_COMPLEX', group, section)
         gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])

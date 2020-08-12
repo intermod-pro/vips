@@ -239,7 +239,12 @@ class Driver(LabberDriver):
             match_idx = int(quant.name.split()[2][0])-1
             row = self.match_results[match_idx]
 
-            comp_vector = [np.complex(i, q) for (i, q) in zip(row[0], row[1])]
+            # Only get match data for the requested iteration
+            iter = int(self.getValue('Index of displayed time trace - iteration'))
+            current_iter_real = row[0][iter-1::self.iterations]
+            current_iter_imag = row[1][iter-1::self.iterations]
+
+            comp_vector = [np.complex(i, q) for (i, q) in zip(current_iter_real, current_iter_imag)]
 
             return quant.getTraceDict(comp_vector, x=range(len(comp_vector)), x0=0, dt=1)
 
@@ -311,6 +316,8 @@ class Driver(LabberDriver):
                 self.match_results = self.get_template_matching_results(q)
             else:
                 self.sampling_results = 'Dummy result'
+                # Dummy matching results
+                self.match_results = [[[1, 2, 3, 4, 5], [1, 2, 3, 4, 5]]]
 
     def get_template_matching_results(self, q):
         """
@@ -320,15 +327,24 @@ class Driver(LabberDriver):
         matchings = []
         for m in self.template_matchings:
             curr_match_results = []
-            match1 = q.get_template_matching_data(m[1])[0]
-            # Divide the mach result by match duration (in ns) to normalise
-            curr_match_results.append(match1 / (m[3] * 1e9))
+            match_i1 = q.get_template_matching_data(m[1])[0]
+            match_q1 = q.get_template_matching_data(m[3])[0]
+
             if m[2] is not None:
-                match2 = q.get_template_matching_data(m[2])[0]
-                curr_match_results.append(match2 / (m[3] * 1e9))
+                match_i2 = q.get_template_matching_data(m[2])[0]
+                match_q2 = q.get_template_matching_data(m[4])[0]
+
+                # Combine the I results and Q results
+                combined_i = match_i1 + match_q2
+                combined_q = match_i2 - match_q1
+
+                # Divide the match result by match duration (in ns) to normalise
+                curr_match_results.append(combined_i * m[5])
+                curr_match_results.append(combined_q * m[5])
             else:
-                # If matching was only on one port, fill the other result array with zeroes
-                curr_match_results.append(np.zeros(len(curr_match_results[0])))
+                # If matching was only on one port, just add I and Q as is
+                curr_match_results.append(match_i1 * m[5])
+                curr_match_results.append(match_q1 * m[5])
 
             matchings.append(curr_match_results)
 
