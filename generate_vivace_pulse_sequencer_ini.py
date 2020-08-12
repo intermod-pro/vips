@@ -15,7 +15,7 @@ TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 MATCH_TEMPLATES = ['Square', 'Sin2', 'Triangle']
 MATCH_TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
-VERSION = '1.2.4'
+VERSION = '1.2.5'
 DRIVER_PATH = 'Vivace_Pulse_Sequencer'
 INTERFACE = 'TCPIP'
 
@@ -423,6 +423,13 @@ def section_matching():
         gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
         gen.get_cmd('get_match')
         gen.permission('READ')
+
+    for m in range(1, MAX_MATCHES+1):
+        gen.create_quant(f'Template matching {m}: Average result', f'Average {m}', 'COMPLEX',
+                         'Averages (read-only)', section)
+        gen.visibility('Number of matches', *[str(i) for i in range(m, MAX_MATCHES + 1)])
+        gen.permission('READ')
+        gen.get_cmd('get_match')
 
 
 def section_preview():

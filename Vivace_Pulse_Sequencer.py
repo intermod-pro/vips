@@ -246,6 +246,9 @@ class Driver(LabberDriver):
 
             comp_vector = [np.complex(i, q) for (i, q) in zip(current_iter_real, current_iter_imag)]
 
+            if 'Average' in quant.name:
+                return np.average(comp_vector)
+
             return quant.getTraceDict(comp_vector, x=range(len(comp_vector)), x0=0, dt=1)
 
         if quant.get_cmd == 'template_preview':
@@ -317,7 +320,8 @@ class Driver(LabberDriver):
             else:
                 self.sampling_results = 'Dummy result'
                 # Dummy matching results
-                self.match_results = [[[1, 2, 3, 4, 5], [1, 2, 3, 4, 5]]]
+                self.match_results = [[range(1, (5 * self.iterations) + 1),
+                                       range(1, (5 * self.iterations) + 1)]]
 
     def get_template_matching_results(self, q):
         """
