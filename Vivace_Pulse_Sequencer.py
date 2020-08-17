@@ -28,14 +28,14 @@ class Driver(LabberDriver):
     it with data extracted from different parts of the instrument.
     """
 
-    # In order to use the driver with actual hardware, DRY_RUN needs to be False
-    DRY_RUN = True
-
     N_IN_PORTS = 8
     N_OUT_PORTS = 8
 
     # Used to separate definition indices for normal and DRAG templates
     DRAG_INDEX_OFFSET = 1000
+
+    # In order to use the driver with actual hardware, dry_run needs to be False
+    dry_run = None
 
     # Version numbers, will be fetched from Vivace and the ViPS definition
     vips_ver = None
@@ -59,7 +59,7 @@ class Driver(LabberDriver):
 
         self.sampling_freq = None
         self.averages = None
-        self.measurement_period = None
+        self.trigger_period = None
         self.iterations = None
         self.templates = {}
         self.drag_templates = []
@@ -93,7 +93,7 @@ class Driver(LabberDriver):
         Reinitialise the driver's state. Should be equivalent to restarting the instrument.
         """
         self.averages = None
-        self.measurement_period = None
+        self.trigger_period = None
         self.iterations = None
         self.templates = {}
         self.drag_templates = []
@@ -172,7 +172,8 @@ class Driver(LabberDriver):
             self.vips_ver = version
 
         # Get Vivace's version numbers
-        with pulsed.Pulsed(dry_run=self.DRY_RUN, address=self.address) as q:
+        self.dry_run = not self.getValue('Vivace connection enabled')
+        with pulsed.Pulsed(dry_run=self.dry_run, address=self.address) as q:
             self.vivace_api_ver = '1.0.2'  # TODO fetch from Vivace
 
             try:
@@ -217,7 +218,7 @@ class Driver(LabberDriver):
             else:
                 self.previously_outputted_trace_configs.append(circumstance)
 
-            if not self.DRY_RUN:
+            if not self.dry_run:
                 return self.get_trace(quant)
             else:
                 # Dummy output
@@ -295,7 +296,8 @@ class Driver(LabberDriver):
         Use all given information in the instrument to perform a measurement with the board.
         Store the resulting output in a global variable.
         """
-        with pulsed.Pulsed(ext_ref_clk=True, dry_run=self.DRY_RUN, address=self.address) as q:
+        self.dry_run = not self.getValue('Vivace connection enabled')
+        with pulsed.Pulsed(ext_ref_clk=True, dry_run=self.dry_run, address=self.address) as q:
             self.setup_instrument(q)
 
             # Set up our actual LUTs on the board
@@ -308,7 +310,7 @@ class Driver(LabberDriver):
             scheduling.setup_template_matches(self, q)
 
             # Start measuring
-            total_time = self.measurement_period * (self.iterations + 1)
+            total_time = self.trigger_period * (self.iterations + 1)
             self.lgr.add_line('q.perform_measurement()')
             output = q.perform_measurement(total_time, 1, self.averages)
             if not q.dry_run:
@@ -412,8 +414,8 @@ class Driver(LabberDriver):
         These are saved in global variables.
         """
         self.averages = int(self.getValue('Average'))
-        self.measurement_period = self.getValue('Trigger period')
-        if self.measurement_period == 0:
+        self.trigger_period = self.getValue('Trigger period')
+        if self.trigger_period == 0:
             raise ValueError('Trigger period cannot be 0!')
         self.iterations = int(self.getValue('Iterations'))
 

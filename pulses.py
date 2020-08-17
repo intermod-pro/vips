@@ -395,6 +395,11 @@ def get_sample_windows(vips, q):
         except ValueError:
             err_msg = f'Invalid start time definition for sampling!'
             raise ValueError(err_msg)
+
+        # Sample window has to fit within trigger period
+        if time[0] + (vips.iterations - 1) * time[1] + duration > vips.trigger_period:
+            raise ValueError('Sampling duration cannot exceed the length of the trigger period!')
+
         # Get a unique pulse def id
         p_id = get_next_pulse_id(vips)
 

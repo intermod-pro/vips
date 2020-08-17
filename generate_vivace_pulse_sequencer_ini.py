@@ -15,7 +15,7 @@ TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 MATCH_TEMPLATES = ['Square', 'Sin2', 'Triangle']
 MATCH_TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
-VERSION = '1.2.5'
+VERSION = '1.2.6'
 DRIVER_PATH = 'Vivace_Pulse_Sequencer'
 INTERFACE = 'TCPIP'
 
@@ -488,6 +488,14 @@ def section_debug():
     gen.visibility('Enable Vivace call logging', True)
     gen.default(True)
     gen.set_cmd('not_affecting_board')
+
+    group = 'Dry run'
+
+    gen.create_quant('Vivace connection enabled', 'Enable connection to Vivace', 'BOOLEAN', group, section)
+    gen.default(True)
+    gen.set_cmd('vivace_connect')
+    gen.tooltip('When disabled, ViPS will not send any data to the Vivace hardware. '
+                'All output will default to dummy values.')
 
     group = 'Versions'
 

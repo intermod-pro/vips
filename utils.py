@@ -73,7 +73,7 @@ def get_absolute_time(vips, base, delta, iteration):
     Given a base, a delta and the current iteration index, compute and return an
     absolute time value for use with Vivace's methods.
     """
-    return (vips.measurement_period * iteration  # The current period's start time
+    return (vips.trigger_period * iteration  # The current period's start time
             + base  # The constant part of the given time
             + delta * iteration)  # The scaling part of the given time
 
