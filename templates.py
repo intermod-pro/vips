@@ -82,10 +82,15 @@ def get_long_drive_definition(vips, definition_idx, sampling_frequency):
     template = {}
     dur_string = vips.getValue(f'Envelope template {definition_idx}: long drive duration')
     try:
-        template['Base'], template['Delta'] = input_handling.parse_number(dur_string)
-    except ValueError:
-        error_msg = f'Invalid duration value for template definition {definition_idx}'
-        raise ValueError(error_msg)
+        template['Base'], template['Delta'] = input_handling.compute_time_string(vips, dur_string)
+    except ValueError as err:
+        raise ValueError(f'Invalid duration value for template definition {definition_idx}:\n{err}')
+    # Ensure that duration is not negative
+    if template['Base'] < 0:
+        raise ValueError(f'Template definition {definition_idx} has a negative base duration!')
+    if template['Base'] + template['Delta'] * vips.iterations < 0:
+        raise ValueError(f'Template definition {definition_idx} will have a negative duration during some iteration!')
+
     # Check if we should add gaussian flanks
     use_gaussian = vips.getValue(f'Envelope template {definition_idx}: use gaussian rise and fall')
     if use_gaussian:

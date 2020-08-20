@@ -10,14 +10,30 @@ MAX_TEMPLATES = 15
 CUSTOM_TEMPLATES = 8
 MAX_PULSE_DEFS = 16
 MAX_MATCHES = 8
+MAX_VARIABLES = 10
 TEMPLATES = ['Square', 'Long drive', 'Sin2', 'SinP', 'Sinc', 'Triangle', 'Gaussian', 'Cool']
 TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 MATCH_TEMPLATES = ['Square', 'Sin2', 'Triangle']
 MATCH_TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
-VERSION = '1.2.6'
+VERSION = '1.3.0'
 DRIVER_PATH = 'Vivace_Pulse_Sequencer'
 INTERFACE = 'TCPIP'
+
+
+def section_variables():
+    section = 'Custom variables'
+
+    for i in range(1, MAX_VARIABLES+1):
+        group = f'Custom variable {i}'
+
+        gen.create_quant(f'Custom variable {i} - name', 'Name', 'STRING', group, section)
+        gen.default(f'v{i}')
+        gen.tooltip('Variable names can only contain alphanumeric characters and underscores, '
+                    'and cannot start with a digit.')
+        gen.set_cmd('var_name')
+
+        gen.create_quant(f'Custom variable {i} - value', 'Value', 'DOUBLE', group, section)
 
 
 def section_general():
@@ -514,6 +530,9 @@ def section_debug():
 
 ########## INIT ##########
 gen.general_settings(NAME, VERSION, DRIVER_PATH, author='Johan Blomberg and Gustav Grännsjö', interface=INTERFACE)
+
+gen.big_comment('CUSTOM VARIABLES')
+section_variables()
 
 # TEMPLATES
 gen.big_comment('TEMPLATES')

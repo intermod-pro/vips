@@ -75,11 +75,6 @@ def setup_pulse(vips, iteration, latest_output, pulse, q):
     output_pulse(vips, time, duration, template, template_def, q)
     # Store the time at which this pulse ended
     latest_output[port - 1] = time + duration
-    # Check that we haven't exceeded trigger period length
-    period_end_time = utils.get_absolute_time(vips, vips.trigger_period, 0, iteration)
-    if latest_output[port - 1] >= period_end_time:
-        raise ValueError(f'A pulse on port {port} ends after the end '
-                         f'of the trigger period in iteration {iteration + 1}!')
     return latest_output
 
 

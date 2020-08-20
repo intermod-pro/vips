@@ -76,9 +76,8 @@ def create_pulse_defs(vips, port, def_idx, q):
         try:
             setup_template(vips, q, template_identifier)
         except ValueError as err:
-            if str(err).startswith("No template def"):
-                err_msg = f'Pulse definition {def_idx} on port {port} uses an undefined template!'
-                raise ValueError(err_msg)
+            if str(err).startswith('No template def'):
+                raise ValueError(f'Pulse definition {def_idx} on port {port} uses an undefined template!')
             raise err
 
     sweep_param = vips.getValue(f'Port {port} - def {def_idx} - Sweep param')
@@ -120,10 +119,9 @@ def create_pulse_defs(vips, port, def_idx, q):
         if i < n_start_times:
             # Get start time value
             try:
-                time = input_handling.parse_number(start_time)
-            except ValueError:
-                err_msg = f'Invalid start time definition for port {port}, definition {def_idx}'
-                raise ValueError(err_msg)
+                time = input_handling.compute_time_string(vips, start_time)
+            except ValueError as err:
+                raise ValueError(f'Invalid start time definition for port {port}, definition {def_idx}:\n{err}')
 
             # Create repeats
             for r in range(1, repeat_count):
@@ -308,7 +306,7 @@ def setup_template(vips, q, template_identifier):
     template_def = vips.template_defs[template_no - 1]
     # Check that the given template number has a definition
     if len(template_def) == 0:
-        raise ValueError("No template def found!")
+        raise ValueError('No template def found!')
     # If the requested template has not already been set up for this port, do it.
     if template_identifier not in vips.templates:
         port = template_identifier.port
@@ -391,10 +389,9 @@ def get_sample_windows(vips, q):
     # Store the sample pulse's defining parameters
     for start_time in start_times:
         try:
-            time = input_handling.parse_number(start_time)
-        except ValueError:
-            err_msg = f'Invalid start time definition for sampling!'
-            raise ValueError(err_msg)
+            time = input_handling.compute_time_string(vips, start_time)
+        except ValueError as err:
+            raise ValueError(f'Invalid start time definition for sampling:\n{err}')
 
         # Sample window has to fit within trigger period
         if time[0] + (vips.iterations - 1) * time[1] + duration > vips.trigger_period:

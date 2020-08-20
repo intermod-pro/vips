@@ -31,6 +31,8 @@ class Driver(LabberDriver):
     N_IN_PORTS = 8
     N_OUT_PORTS = 8
 
+    MAX_VARIABLES = 10
+
     # Used to separate definition indices for normal and DRAG templates
     DRAG_INDEX_OFFSET = 1000
 
@@ -61,6 +63,7 @@ class Driver(LabberDriver):
         self.averages = None
         self.trigger_period = None
         self.iterations = None
+        self.custom_vars = None
         self.templates = {}
         self.drag_templates = []
         self.drag_parameters = []
@@ -95,6 +98,7 @@ class Driver(LabberDriver):
         self.averages = None
         self.trigger_period = None
         self.iterations = None
+        self.custom_vars = None
         self.templates = {}
         self.drag_templates = []
         self.drag_parameters = []
@@ -365,6 +369,8 @@ class Driver(LabberDriver):
         self.get_debug_settings()
 
         self.sampling_freq = q.sampling_freq
+        # Store any custom variables the user sets up
+        self.custom_vars = self.get_custom_variables()
         # Get some general parameters such as no. of averages, trigger period etc.
         self.get_general_settings()
         # Get template definitions
@@ -407,6 +413,24 @@ class Driver(LabberDriver):
             self.lgr.working_file_name = self.lgr.file_name
 
             self.lgr.overwrite = self.getValue('Overwrite previous log')
+
+    def get_custom_variables(self):
+        """
+        Stores user-defined custom variables in a dict, with variable names as keys.
+        Returns this dict.
+        """
+        custom_vars = {}
+        for i in range(1, self.MAX_VARIABLES+1):
+            name = self.getValue(f'Custom variable {i} - name')
+            if name.startswith('INVALID:'):
+                raise ValueError(f'Custom variable {i} has an invalid name!')
+            if name != '':
+                if name in custom_vars:
+                    raise ValueError(f'More than one custom variable has the name "{name}"!')
+                value = self.getValue(f'Custom variable {i} - value')
+                custom_vars[name] = value
+
+        return custom_vars
 
     def get_general_settings(self):
         """
@@ -467,6 +491,14 @@ class Driver(LabberDriver):
                     curr_start = utils.get_absolute_time(self, start[0], start[1], it)
                     temp_def = self.template_defs[pulse['Template_no']-1]
                     curr_duration = self.get_template_def_duration(temp_def, it)
+
+                    # Ensure that pulses start within the trigger period
+                    if start[0] + start[1] * it < 0:
+                        raise ValueError(f'A pulse on port {p+1} has a negative start time in iteration {it+1}!')
+                    if start[0] + start[1] * it + curr_duration > self.trigger_period:
+                        raise ValueError(f'A pulse on port {p+1} ends after the end '
+                                         f'of the trigger period in iteration {it+1}!')
+
                     curr_carrier = pulse['Carrier']
                     curr_amp = pulse['Amp'][it]
                     if curr_start == prev_start:

@@ -11,13 +11,15 @@ def setup_conditionals(vips, q):
         cond1 = p_ti.cond1
         cond2 = p_ti.cond2
         if cond1 > len(vips.template_matchings):
+            exist_str = 'exists' if len(vips.template_matchings) == 1 else 'exist'
             raise ValueError(f'A pulse on port {pulse["Port"]} has its first output '
                              f'condition set to template matching {cond1}, but only '
-                             f'{len(vips.template_matchings)} exist(s)!')
+                             f'{len(vips.template_matchings)} {exist_str}!')
         if cond2 > len(vips.template_matchings):
+            exist_str = 'exists' if len(vips.template_matchings) == 1 else 'exist'
             raise ValueError(f'A pulse on port {pulse["Port"]} has its second output '
                              f'condition set to template matching {cond2}, but only '
-                             f'{len(vips.template_matchings)} exist(s)!')
+                             f'{len(vips.template_matchings)} {exist_str}!')
         if cond1 == 0:
             continue
 
