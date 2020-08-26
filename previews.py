@@ -24,15 +24,7 @@ def get_template_preview(vips, quant):
 
     # Long drives can have length 0, which is returned as None
     if len(x) > 0:
-        # Add a fake 0 at the end so the template looks nicer (squares get an extra 1 instead)
-        x = np.append(x, x[-1] + 1 / vips.sampling_freq)
-        if y[-1] != 1:
-            y = np.append(y, 0)
-        else:
-            y = np.append(y, 1)
-
         return quant.getTraceDict(y, x=x, t0=x[0], dt=(x[1] - x[0]))
-
     else:
         return None
 
@@ -42,46 +34,43 @@ def get_sequence_preview(vips, quant):
     Construct a waveform from the pulse sequence information in the instrument
     and return a TraceDict with its information.
     """
-    with pulsed.Pulsed(ext_ref_clk=True, dry_run=True, address=vips.address) as q:
-        vips.setup_instrument(q)
+    period = vips.getValue('Trigger period')
+    preview_port = int(vips.getValue('Preview port'))
+    preview_iter = int(vips.getValue('Preview iteration') - 1)
+    preview_samples = vips.getValue('Preview sample windows')
+    use_slice = vips.getValue('Enable preview slicing')
+    slice_start = vips.getValue('Preview slice start')
+    slice_end = min(vips.getValue('Preview slice end'), period)
+    # Display nothing if the requested index is too high
+    if preview_iter >= vips.iterations:
+        return None
 
-        period = vips.getValue('Trigger period')
-        preview_port = int(vips.getValue('Preview port'))
-        preview_iter = int(vips.getValue('Preview iteration') - 1)
-        preview_samples = vips.getValue('Preview sample windows')
-        use_slice = vips.getValue('Enable preview slicing')
-        slice_start = vips.getValue('Preview slice start')
-        slice_end = min(vips.getValue('Preview slice end'), period)
-        # Display nothing if the requested index is too high
-        if preview_iter >= vips.iterations:
-            return None
+    # The preview will take the form of a list of points, with length determined by trigger period
+    sampling_freq = int(vips.sampling_freq)
+    preview_points = np.zeros(int(sampling_freq * period) + 1)
+    for pulse in vips.pulse_definitions:
+        pulse_port = pulse['Port']
+        if pulse_port != preview_port:
+            continue
 
-        # The preview will take the form of a list of points, with length determined by trigger period
-        sampling_freq = int(vips.sampling_freq)
-        preview_points = np.zeros(int(sampling_freq * period) + 1)
-        for pulse in vips.pulse_definitions:
-            pulse_port = pulse['Port']
-            if pulse_port != preview_port:
-                continue
+        # Make a digitised version of the pulse
+        time, wave = construct_preview_pulse(vips, pulse, preview_iter)
 
-            # Make a digitised version of the pulse
-            time, wave = construct_preview_pulse(vips, pulse, preview_iter)
+        # Place it in the preview timeline
+        pulse_index = int(time * sampling_freq)
+        points_that_fit = len(preview_points[pulse_index:(pulse_index+len(wave))])
+        preview_points[pulse_index:(pulse_index + points_that_fit)] += wave[:points_that_fit]
 
-            # Place it in the preview timeline
-            pulse_index = int(time * sampling_freq)
-            points_that_fit = len(preview_points[pulse_index:(pulse_index+len(wave))])
-            preview_points[pulse_index:(pulse_index + points_that_fit)] += wave[:points_that_fit]
-
-        # Display the sample windows
-        if preview_samples and preview_port in vips.store_ports:
-            for window in vips.sample_windows:
-                start_base, start_delta = window['Time']
-                start = start_base + start_delta * preview_iter
-                duration = vips.getValue('Sampling - duration')
-                wave = np.linspace(-0.1, -0.1, duration * sampling_freq)
-                window_index = int(start * sampling_freq)
-                points_that_fit = len(preview_points[window_index:(window_index+len(wave))])
-                preview_points[window_index:(window_index + len(wave))] = wave[:points_that_fit]
+    # Display the sample windows
+    if preview_samples and preview_port in vips.store_ports:
+        for window in vips.sample_windows:
+            start_base, start_delta = window['Time']
+            start = start_base + start_delta * preview_iter
+            duration = vips.getValue('Sampling - duration')
+            wave = np.linspace(-0.1, -0.1, duration * sampling_freq)
+            window_index = int(start * sampling_freq)
+            points_that_fit = len(preview_points[window_index:(window_index+len(wave))])
+            preview_points[window_index:(window_index + len(wave))] = wave[:points_that_fit]
 
     vips.reset_instrument()
     if use_slice:

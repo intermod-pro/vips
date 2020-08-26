@@ -208,12 +208,13 @@ class Driver(LabberDriver):
             window_idx = iteration_idx * self.samples_per_iteration + pulse_idx
 
             # We construct a unique "fingerprint" of the circumstance in which we called performGetValue.
-            # If we get a repeated circumstance, we can assume that the user would want a new measurement.
+            # If we get a repeated circumstance, we can assume that the user would want a new measurement,
+            # because they've most likely changed an external parameter.
             # The 'delay' value is almost always different, so we force it to 0
             options['delay'] = 0
             circumstance = (quant.name, window_idx, options)
             # Add the circumstance information to the debug log
-            self.lgr.add_line(str(circumstance))
+            self.lgr.add_line(f'Current circumstance: {circumstance}')
             if circumstance in self.previously_outputted_trace_configs:
                 self.reset_instrument()
                 self.perform_measurement()
@@ -240,14 +241,26 @@ class Driver(LabberDriver):
             if self.match_results is None:
                 self.perform_measurement()
 
+            curr_iter = int(self.getValue('Index of displayed time trace - iteration'))
+            options['delay'] = 0
+            circumstance = (quant.name, curr_iter, options)
+            # Add the circumstance information to the debug log
+            self.lgr.add_line(f'Current circumstance: {circumstance}')
+            if circumstance in self.previously_outputted_trace_configs:
+                self.reset_instrument()
+                self.perform_measurement()
+                # Also reset the list, only keeping the current config
+                self.previously_outputted_trace_configs = [circumstance]
+            else:
+                self.previously_outputted_trace_configs.append(circumstance)
+
             # The index of the matching is the first character in the third word of the quant's name (minus 1)
             match_idx = int(quant.name.split()[2][0])-1
             row = self.match_results[match_idx]
 
             # Only get match data for the requested iteration
-            iter = int(self.getValue('Index of displayed time trace - iteration'))
-            current_iter_real = row[0][iter-1::self.iterations]
-            current_iter_imag = row[1][iter-1::self.iterations]
+            current_iter_real = row[0][curr_iter-1::self.iterations]
+            current_iter_imag = row[1][curr_iter-1::self.iterations]
 
             comp_vector = [np.complex(i, q) for (i, q) in zip(current_iter_real, current_iter_imag)]
 
@@ -257,8 +270,15 @@ class Driver(LabberDriver):
             return quant.getTraceDict(comp_vector, x=range(len(comp_vector)), x0=0, dt=1)
 
         if quant.get_cmd == 'template_preview':
+            # Set up instrument to perform error checking and obtain sampling rate
+            with pulsed.Pulsed(ext_ref_clk=True, dry_run=True, address=self.address) as q:
+                self.setup_instrument(q)
             return previews.get_template_preview(self, quant)
+
         if quant.get_cmd == 'sequence_preview':
+            # Set up instrument to form the full pulse sequence
+            with pulsed.Pulsed(ext_ref_clk=True, dry_run=True, address=self.address) as q:
+                self.setup_instrument(q)
             return previews.get_sequence_preview(self, quant)
 
         return quant.getValue()
