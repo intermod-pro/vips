@@ -16,7 +16,7 @@ TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 MATCH_TEMPLATES = ['Square', 'Sin2', 'Triangle']
 MATCH_TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
-VERSION = '1.3.1'
+VERSION = '1.3.2'
 DRIVER_PATH = 'Vivace_Pulse_Sequencer'
 INTERFACE = 'TCPIP'
 
@@ -283,7 +283,7 @@ def section_port_sequence(port):
         # Custom steps
         gen.create_quant(f'Port {port} - def {i} - Sweep custom steps', 'Step values', 'STRING', group, section)
         gen.tooltip('Separate with comma')
-        gen.set_cmd('double_list')
+        gen.set_cmd('number_string', 'list')
         gen.visibility(f'Port {port} - def {i} - Sweep format', 'Custom')
 
         # Conditionals

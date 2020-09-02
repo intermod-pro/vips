@@ -62,11 +62,11 @@ def get_sequence_preview(vips, quant):
         preview_points[pulse_index:(pulse_index + points_that_fit)] += wave[:points_that_fit]
 
     # Display the sample windows
-    if preview_samples and preview_port in vips.store_ports:
+    if preview_samples and preview_port in vips.sampling_ports:
         for window in vips.sample_windows:
             start_base, start_delta = window['Time']
             start = start_base + start_delta * preview_iter
-            duration = vips.getValue('Sampling - duration')
+            duration = vips.sampling_duration
             wave = np.linspace(-0.1, -0.1, duration * sampling_freq)
             window_index = int(start * sampling_freq)
             points_that_fit = len(preview_points[window_index:(window_index+len(wave))])

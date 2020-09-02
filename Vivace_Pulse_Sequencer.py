@@ -79,8 +79,9 @@ class Driver(LabberDriver):
         self.template_matchings = None
         self.match_results = None
 
-        # Sample ports
-        self.store_ports = None
+        # Sampling parameters
+        self.sampling_ports = None
+        self.sampling_duration = None
 
         # Measurement output
         self.time_array = None
@@ -114,8 +115,9 @@ class Driver(LabberDriver):
         self.template_matchings = None
         self.match_results = None
 
-        # Sample ports
-        self.store_ports = None
+        # Sampling parameters
+        self.sampling_ports = None
+        self.sampling_duration = None
 
         # Measurement output
         self.time_array = None
@@ -298,7 +300,7 @@ class Driver(LabberDriver):
             raise ValueError('Could not find a port number to output for')
         # Convert port number to index of active sampling ports
         try:
-            output_idx = self.store_ports.index(port_no)
+            output_idx = self.sampling_ports.index(port_no)
         except ValueError:
             # The port in question wasn't active, so don't display anything
             return None

@@ -34,9 +34,15 @@ def handle_input(quant, value):
         return validate_time_string(value, is_list)
 
     # Some quants should allow a list of comma-separated doubles
-    if 'double_list' in set_commands:
+    if 'number_string' in set_commands:
         value = value.replace('INVALID: ', '')
-        return parse_list_of_doubles(value)
+        if 'list' not in set_commands:
+            try:
+                return float(value)
+            except ValueError:
+                return f'INVALID: {value}'
+        else:
+            return parse_list_of_doubles(value)
 
     # Some Double quants should only allow integer values
     if 'int' in set_commands:
@@ -225,11 +231,11 @@ def compute_time_string(vips, string):
 def parse_list_of_doubles(string):
     """
     Ensure that the given input string is a list of comma-separated floats.
-    Return a formatted version of the input string, preceded by INVALID if something is incorrect.
+    Return a formatted version of the input string, preceded by 'INVALID: ' if something is incorrect.
     """
     for val in string.split(','):
         try:
             float(val)
         except ValueError:
-            return 'INVALID: ' + string
+            return f'INVALID: {string}'
     return string.replace(' ', '').replace(',', ', ').upper()

@@ -375,11 +375,12 @@ def get_sample_windows(vips, q):
 
     vips.lgr.add_line(f'q.set_store_duration({duration})')
     q.set_store_duration(duration)
+    vips.sampling_duration = duration
 
     # Save the ports we want to sample on
     vips.lgr.add_line(f'q.set_store_ports({sampling_ports})')
     q.set_store_ports(sampling_ports)
-    vips.store_ports = sampling_ports
+    vips.sampling_ports = sampling_ports
 
     # Get times and duration
     start_times_string = vips.getValue(f'Sampling - start times')

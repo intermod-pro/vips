@@ -42,7 +42,7 @@ def get_template_matching_definitions(vips, q):
         p1_amp_multiplier = vips.getValue(f'Template matching {m} - I port amplitude scale multiplier')
         p2_amp_multiplier = vips.getValue(f'Template matching {m} - Q port amplitude scale multiplier')
 
-        window_duration = vips.getValue('Sampling - duration')
+        window_duration = vips.sampling_duration
 
         # Matching can only happen within sampling windows
         for i in range(vips.iterations):
@@ -136,7 +136,7 @@ def get_port_information(vips, matching_no):
     sample_q_port = utils.combo_to_int(sample_q_port)
 
     # Matching can only happen on ports with sampling activated
-    if sample_i_port not in vips.store_ports or sample_q_port not in [0, *vips.store_ports]:
+    if sample_i_port not in vips.sampling_ports or sample_q_port not in [0, *vips.sampling_ports]:
         raise ValueError(f'Template matching {matching_no}: '
                          f'Sampling needs to be enabled on the ports set as sampling ports!')
 
