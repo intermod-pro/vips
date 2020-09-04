@@ -591,7 +591,8 @@ class Driver(LabberDriver):
                     # Set up the old target pulse's template on the new port
                     p_ti = pulse['Template_identifier']
                     new_template_identifier = templates.TemplateIdentifier(port, p_ti.carrier, p_ti.def_idx,
-                                                                       p_ti.cond1, p_ti.cond2)
+                                                                           p_ti.cond1, p_ti.cond2,
+                                                                           p_ti.cond1_quad, p_ti.cond2_quad)
                     p_copy['Template_identifier'] = new_template_identifier
                     pulses.setup_template(self, q, new_template_identifier)
 

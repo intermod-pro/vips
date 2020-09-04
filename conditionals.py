@@ -10,6 +10,8 @@ def setup_conditionals(vips, q):
         p_ti = pulse['Template_identifier']
         cond1 = p_ti.cond1
         cond2 = p_ti.cond2
+        cond1_quad = p_ti.cond1_quad
+        cond2_quad = p_ti.cond2_quad
         if cond1 > len(vips.template_matchings):
             exist_str = 'exists' if len(vips.template_matchings) == 1 else 'exist'
             raise ValueError(f'A pulse on port {pulse["Port"]} has its first output '
@@ -25,15 +27,19 @@ def setup_conditionals(vips, q):
 
         matches = []
         m1 = vips.template_matchings[cond1 - 1]
-        matches.append(m1[1])
-        if m1[2] is not None:
-            matches.append(m1[2])
+        if cond1_quad == 'I':
+            matches.append(m1[1])
+        else:
+            matches.append(m1[3])
+        # TODO port 2 stuff
 
         if cond2 != 0:
             m2 = vips.template_matchings[cond2 - 1]
-            matches.append(m2[1])
-            if m2[2] is not None:
-                matches.append(m2[2])
+            if cond2_quad == 'I':
+                matches.append(m2[1])
+            else:
+                matches.append(m2[3])
+            # TODO port 2
 
         p_template = vips.templates[p_ti]
 

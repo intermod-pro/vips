@@ -16,7 +16,7 @@ TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 MATCH_TEMPLATES = ['Square', 'Sin2', 'Triangle']
 MATCH_TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
-VERSION = '1.3.2'
+VERSION = '1.3.3'
 DRIVER_PATH = 'Vivace_Pulse_Sequencer'
 INTERFACE = 'TCPIP'
 
@@ -293,11 +293,22 @@ def section_port_sequence(port):
         gen.tooltip('This pulse will only be outputted if the selected template matching yields a positive result.')
         gen.visibility(f'Pulses for port {port}', *[str(j) for j in range(i, MAX_PULSE_DEFS + 1)])
 
+        gen.create_quant(f'Port {port} - def {i} - Template matching condition 1 quadrature',
+                         'Condition 1 - quadrature', 'COMBO', group, section)
+        gen.combo_options('I', 'Q')
+        gen.visibility(f'Port {port} - def {i} - Template matching condition 1', *[str(j) for j in range(1, MAX_MATCHES+1)])
+
         gen.create_quant(f'Port {port} - def {i} - Template matching condition 2',
                          'Matching condition 2', 'COMBO', group, section)
         gen.combo_options('None', *[str(j) for j in range(1, MAX_MATCHES + 1)])
         gen.tooltip('This pulse will only be outputted if both of the selected template matches yield a positive result.')
         gen.visibility(f'Port {port} - def {i} - Template matching condition 1', *[str(j) for j in range(1, MAX_PULSE_DEFS + 1)])
+
+        gen.create_quant(f'Port {port} - def {i} - Template matching condition 2 quadrature',
+                         'Condition 2 - quadrature', 'COMBO', group, section)
+        gen.combo_options('I', 'Q')
+        gen.visibility(f'Port {port} - def {i} - Template matching condition 2',
+                       *[str(j) for j in range(1, MAX_MATCHES + 1)])
 
 
 def section_sample():

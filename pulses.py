@@ -62,14 +62,17 @@ def create_pulse_defs(vips, port, def_idx, q):
 
     cond1 = vips.getValue(f'Port {port} - def {def_idx} - Template matching condition 1')
     cond1 = utils.combo_to_int(cond1)
+    cond1_quad = vips.getValue(f'Port {port} - def {def_idx} - Template matching condition 1 quadrature')
     cond2 = vips.getValue(f'Port {port} - def {def_idx} - Template matching condition 2')
     cond2 = utils.combo_to_int(cond2)
+    cond2_quad = vips.getValue(f'Port {port} - def {def_idx} - Template matching condition 2 quadrature')
+
     if cond1 != 0 and cond1 == cond2:
         raise ValueError(f'Pulse {def_idx} on port {port}: both output conditions are set '
                          f'to the same value! Please set another value for the second condition,'
                          f'or disable it.')
 
-    template_identifier = TemplateIdentifier(port, carrier, template_no, cond1, cond2)
+    template_identifier = TemplateIdentifier(port, carrier, template_no, cond1, cond2, cond1_quad, cond2_quad)
 
     # Non-DRAG pulses can have their template set up normally
     if carrier != 3:
@@ -185,10 +188,12 @@ def calculate_drag(vips, def_idx, time, port, template_no, amp, freq, phase, q):
     phase_shift = vips.getValue(f'Port {port} - def {def_idx} - DRAG phase shift')
     cond1 = vips.getValue(f'Port {port} - def {def_idx} - Template matching condition 1')
     cond1 = utils.combo_to_int(cond1)
+    cond1_quad = vips.getValue(f'Port {port} - def {def_idx} - Template matching condition 1 quadrature')
     cond2 = vips.getValue(f'Port {port} - def {def_idx} - Template matching condition 2')
     cond2 = utils.combo_to_int(cond2)
+    cond2_quad = vips.getValue(f'Port {port} - def {def_idx} - Template matching condition 2 quadrature')
 
-    if (template_no, scale, detuning, cond1, cond2) not in vips.drag_parameters:
+    if (template_no, scale, detuning, cond1, cond2, cond1_quad, cond2_quad) not in vips.drag_parameters:
         beta = scale * vips.sampling_freq
 
         # Add the original envelope's gradient (scaled) as a complex part
@@ -228,10 +233,10 @@ def calculate_drag(vips, def_idx, time, port, template_no, amp, freq, phase, q):
         sibl_im_idx = vips.DRAG_INDEX_OFFSET + param_idx * 4 + 3
 
         # Prepare template identifiers to store the four templates under
-        base_re_ti = TemplateIdentifier(port,         1, base_re_idx, cond1, cond2)
-        base_im_ti = TemplateIdentifier(port,         2, base_im_idx, cond1, cond2)
-        sibl_re_ti = TemplateIdentifier(sibling_port, 1, sibl_re_idx, cond1, cond2)
-        sibl_im_ti = TemplateIdentifier(sibling_port, 2, sibl_im_idx, cond1, cond2)
+        base_re_ti = TemplateIdentifier(port,         1, base_re_idx, cond1, cond2, cond1_quad, cond2_quad)
+        base_im_ti = TemplateIdentifier(port,         2, base_im_idx, cond1, cond2, cond1_quad, cond2_quad)
+        sibl_re_ti = TemplateIdentifier(sibling_port, 1, sibl_re_idx, cond1, cond2, cond1_quad, cond2_quad)
+        sibl_im_ti = TemplateIdentifier(sibling_port, 2, sibl_im_idx, cond1, cond2, cond1_quad, cond2_quad)
         vips.templates[base_re_ti] = base_re_template
         vips.templates[base_im_ti] = base_im_template
         vips.templates[sibl_re_ti] = sibl_re_template
@@ -244,11 +249,11 @@ def calculate_drag(vips, def_idx, time, port, template_no, amp, freq, phase, q):
         vips.drag_templates.append(im_points)
 
         # Add these parameters to the list
-        vips.drag_parameters.append((template_no, scale, detuning, cond1, cond2))
+        vips.drag_parameters.append((template_no, scale, detuning, cond1, cond2, cond1_quad, cond2_quad))
 
     # We've already made the necessary templates, find their index
     else:
-        match_idx = vips.drag_parameters.index((template_no, scale, detuning, cond1, cond2))
+        match_idx = vips.drag_parameters.index((template_no, scale, detuning, cond1, cond2, cond1_quad, cond2_quad))
 
         # We add 1000 to the base index to separate it from a normal definition index
         base_re_idx = vips.DRAG_INDEX_OFFSET + match_idx * 4 + 0
@@ -280,7 +285,8 @@ def calculate_drag(vips, def_idx, time, port, template_no, amp, freq, phase, q):
             # Negative sine with pi/2 offset, so 3/2pi in total
             d_phase = [p + phase_shift + 3/2 for p in phase.copy()]
 
-        template_ident = TemplateIdentifier(d_port, d_carrier, d_idx, cond1, cond2)
+        # Recreate the template identifier used before
+        template_ident = TemplateIdentifier(d_port, d_carrier, d_idx, cond1, cond2, cond1_quad, cond2_quad)
         pulse_defs.append({
             'ID': get_next_pulse_id(vips),
             'Time': time,

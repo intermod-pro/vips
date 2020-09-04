@@ -21,8 +21,8 @@ def handle_input(quant, value):
     if 'var_name' in set_commands:
         # Strip the input down to the essential part
         value = value.replace('INVALID:', '')
-        value = value.strip()
-        valid = re.compile('|([A-Za-z_]+[1-9A-Za-z_]*)')
+        value = value.replace(' ', '')
+        valid = re.compile('|([A-Za-z_]+[0-9A-Za-z_]*)')
         match = valid.fullmatch(value)
         if not match:
             return f'INVALID: {value}'
@@ -83,7 +83,7 @@ def validate_time_string(value, is_list):
             return f'INVALID: {value}'
         while len(s) > 0:
             prefix = '[+-]?' if first else '[+-]'
-            var_rex = re.compile(prefix + r'[A-Za-z_]+[1-9A-Za-z_]*(\*i)?')
+            var_rex = re.compile(prefix + r'[A-Za-z_]+[0-9A-Za-z_]*(\*i)?')
             var_match = var_rex.match(s)
             if var_match:
                 # Remove the matched part from input
@@ -92,8 +92,9 @@ def validate_time_string(value, is_list):
                 s = s[match_len:]
                 first = False
                 if match_str[0] in ('+', '-'):
-                    match_str = f' {match_str[0]} {match_str[1:]}'
-                accum_string += match_str
+                    match_str = f'{match_str[0]} {match_str[1:]}'
+                # Add a space after variable name
+                accum_string += f'{match_str} '
                 continue
 
             # No variable match, check for numeric value
@@ -108,7 +109,8 @@ def validate_time_string(value, is_list):
 
                 # Temporarily remove first char if it's a + or -
                 if match_str[0] in ('+', '-'):
-                    prefix_char = match_str[0]
+                    # Put a space after the sign
+                    prefix_char = f'{match_str[0]} '
                     match_str = match_str[1:]
                 else:
                     prefix_char = ''
@@ -120,7 +122,7 @@ def validate_time_string(value, is_list):
                 if match_str.startswith('.'):
                     match_str = '0' + match_str
 
-                match_str = f' {prefix_char} {match_str}'
+                match_str = f'{prefix_char}{match_str} '
                 match_str = match_str.replace('I', 'i')
                 match_str = match_str.replace('e', 'E')
                 accum_string += match_str
@@ -129,8 +131,8 @@ def validate_time_string(value, is_list):
             # No match, invalid input
             return f'INVALID: {value}'
 
-        result += accum_string
-    return result.strip()
+        result += accum_string.strip()
+    return result
 
 
 def is_value_new(vips, quant, value):
@@ -178,6 +180,7 @@ def compute_time_string(vips, string):
     if string.startswith('INVALID:'):
         raise ValueError('Invalid format of time string!')
 
+    string = string.strip()
     parts = string.split(' ')
 
     latest_sign = 1
