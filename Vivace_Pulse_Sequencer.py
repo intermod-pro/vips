@@ -370,13 +370,13 @@ class Driver(LabberDriver):
                 combined_i = match_i1 + match_q2
                 combined_q = match_i2 - match_q1
 
-                # Divide the match result by match duration (in ns) to normalise
-                curr_match_results.append(combined_i * m[5])
-                curr_match_results.append(combined_q * m[5])
+                # Divide the match result by number of points in match to normalize
+                curr_match_results.append(combined_i / self.sampling_freq)
+                curr_match_results.append(combined_q / self.sampling_freq)
             else:
                 # If matching was only on one port, just add I and Q as is
-                curr_match_results.append(match_i1 * m[5])
-                curr_match_results.append(match_q1 * m[5])
+                curr_match_results.append(match_i1 / self.sampling_freq)
+                curr_match_results.append(match_q1 / self.sampling_freq)
 
             matchings.append(curr_match_results)
 

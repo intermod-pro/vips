@@ -66,7 +66,7 @@ def validate_time_string(value, is_list):
     Otherwise, the original string is returned with an 'INVALID: ' prefix.
     """
     # Strip the input down to the essential part
-    value = value.replace('INVALID:', '')
+    value = value.replace('INVALID:', '').strip()
     input_str = value.replace(' ', '')
 
     # Split the string if the quant accepts multiple values
@@ -98,7 +98,7 @@ def validate_time_string(value, is_list):
                 continue
 
             # No variable match, check for numeric value
-            num_rex = re.compile(prefix + r'(([0-9]+)|([0-9]*\.[0-9]+))(e-?[0-9]+)?(\*?i)?', re.I)
+            num_rex = re.compile(prefix + r'(([0-9]*\.[0-9]+)|([0-9]+))(e-?[0-9]+)?(\*?i)?', re.I)
             num_match = num_rex.match(s)
             if num_match:
                 # Remove the matched part from input
