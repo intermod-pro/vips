@@ -270,20 +270,20 @@ def calculate_drag(vips, def_idx, time, port, template_no, amp, freq, phase, q):
         # Phase offset and template index is different between every definition
         if i == 0:
             d_idx = base_re_idx
-            # Cosine, so we need to shift our sine by pi/2
-            d_phase = [p + 1/2 for p in phase.copy()]
+            # Cosine, so we don't need to shift the carrier
+            d_phase = phase.copy()
         elif i == 1:
             d_idx = base_im_idx
-            # Negative cosine with pi/2 offset, so 2pi = 0 in total
-            d_phase = phase.copy()
+            # Negative cosine with pi/2 offset, i.e. a negative pi/2 offset
+            d_phase = [p - 1/2 for p in phase.copy()]
         elif i == 2:
             d_idx = sibl_re_idx
-            # Sine without offset
-            d_phase = [p + phase_shift for p in phase.copy()]
+            # Sine, so negative pi/2 offset
+            d_phase = [p - 1/2 + phase_shift for p in phase.copy()]
         else:
             d_idx = sibl_im_idx
-            # Negative sine with pi/2 offset, so 3/2pi in total
-            d_phase = [p + phase_shift + 3/2 for p in phase.copy()]
+            # Negative sine with pi/2 offset, so a pi offset
+            d_phase = [p + 1 + phase_shift for p in phase.copy()]
 
         # Recreate the template identifier used before
         template_ident = TemplateIdentifier(d_port, d_carrier, d_idx, cond1, cond2, cond1_quad, cond2_quad)

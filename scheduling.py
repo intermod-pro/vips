@@ -13,15 +13,14 @@ def setup_sequence(vips, q):
     """
     Issue commands to the board to set up the pulse sequence defined in the instrument.
     """
-    # The time at which the latest emitted pulse ended, for each port
-    # Used to determine when to step in the LUTs, to ensure that all parameters are ready
-    # before outputting the next pulse
-    latest_output = [0] * vips.N_OUT_PORTS
+    # The time at which the latest emitted pulse began, for each port
+    # Used to avoid multiple LUT steps for pulses starting at the same time
+    prev_output_time = [-1] * vips.N_OUT_PORTS
     setup_carriers(vips, q)
     for iter in range(vips.iterations):
         vips.lgr.add_line(f'-- Iteration {iter} --')
         for pulse in vips.pulse_definitions:
-            latest_output = setup_pulse(vips, iter, latest_output, pulse, q)
+            prev_output_time = setup_pulse(vips, iter, prev_output_time, pulse, q)
         for window in vips.sample_windows:
             setup_sample_window(vips, window, iter, q)
 
@@ -45,10 +44,10 @@ def setup_carriers(vips, q):
             q.output_carrier(t, duration, p+1)
 
 
-def setup_pulse(vips, iteration, latest_output, pulse, q):
+def setup_pulse(vips, iteration, prev_output_time, pulse, q):
     """
     Called from setup_sequence(). This function handles all the setup of a single pulse definition.
-    Returns latest_output, which is the time at which this pulse ends
+    Returns prev_output_time, which is the time at which this pulse begins
     """
     port = pulse['Port']
     template_no = pulse['Template_no']
@@ -68,14 +67,15 @@ def setup_pulse(vips, iteration, latest_output, pulse, q):
     time = utils.get_absolute_time(vips, start_base, start_delta, iteration)
     p_amp, p_freq, p_phase = utils.get_amp_freq_phase(pulse, iteration)
 
-    # Step to the pulse's parameters in the LUTs
-    go_to_amp(vips, q, latest_output[port - 1], port, p_amp)
+    # Step to the pulse's parameters in the LUTs, unless it has already happened for a pulse of the same start time
+    if prev_output_time[port - 1] != time:
+        go_to_amp(vips, q, max(0, time - 2e-9), port, p_amp)
 
     # Set up the actual pulse command on the board
     output_pulse(vips, time, duration, template, template_def, q)
-    # Store the time at which this pulse ended
-    latest_output[port - 1] = time + duration
-    return latest_output
+    # Store the time at which this pulse began
+    prev_output_time[port - 1] = time
+    return prev_output_time
 
 
 def setup_sample_window(vips, window, iteration, q):

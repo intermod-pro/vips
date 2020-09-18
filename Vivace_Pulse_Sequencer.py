@@ -337,7 +337,7 @@ class Driver(LabberDriver):
 
             # Start measuring
             total_time = self.trigger_period * (self.iterations + 1)
-            self.lgr.add_line('q.perform_measurement()')
+            self.lgr.add_line(f'q.perform_measurement(time: {total_time}, repeat_count: 1, averages: {self.averages})')
             output = q.perform_measurement(total_time, 1, self.averages)
             if not q.dry_run:
                 # Store the results
@@ -371,12 +371,17 @@ class Driver(LabberDriver):
                 combined_q = match_i2 - match_q1
 
                 # Divide the match result by number of points in match to normalize
-                curr_match_results.append(combined_i / self.sampling_freq)
-                curr_match_results.append(combined_q / self.sampling_freq)
+                # TODO change
+                #curr_match_results.append(combined_i / self.sampling_freq)
+                curr_match_results.append(combined_i * m[5])
+                #curr_match_results.append(combined_q / self.sampling_freq)
+                curr_match_results.append(combined_q * m[5])
             else:
                 # If matching was only on one port, just add I and Q as is
-                curr_match_results.append(match_i1 / self.sampling_freq)
-                curr_match_results.append(match_q1 / self.sampling_freq)
+                #curr_match_results.append(match_i1 / self.sampling_freq)
+                curr_match_results.append(match_i1 * m[5])
+                #curr_match_results.append(match_q1 / self.sampling_freq)
+                curr_match_results.append(match_q1 * m[5])
 
             matchings.append(curr_match_results)
 
