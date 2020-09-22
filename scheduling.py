@@ -16,7 +16,7 @@ def setup_sequence(vips, q):
     # The time at which the latest emitted pulse began, for each port
     # Used to avoid multiple LUT steps for pulses starting at the same time
     prev_output_time = [-1] * vips.N_OUT_PORTS
-    setup_carriers(vips, q)
+    schedule_fp_changes(vips, q)
     for iter in range(vips.iterations):
         vips.lgr.add_line(f'-- Iteration {iter} --')
         for pulse in vips.pulse_definitions:
@@ -25,23 +25,15 @@ def setup_sequence(vips, q):
             setup_sample_window(vips, window, iter, q)
 
 
-def setup_carriers(vips, q):
+def schedule_fp_changes(vips, q):
     """
     Called from setup_sequence().
-    Schedule the starting of Vivace's carrier generators, with appropriately timed LUT stepping.
+    Schedule the stepping in Vivace's Frequency/Phase LUTs.
     """
     for p, port_changes in enumerate(vips.carrier_changes):
         for i, (t, fp1, fp2) in enumerate(port_changes):
             # Step to the pulse's parameters in the LUTs
             go_to_fp(vips, q, t, p + 1, (fp1, fp2))
-            # If not at the last change, calculate how long we can output until the next change
-            if i != len(port_changes) - 1:
-                duration = port_changes[i+1][0] - t - 2e-9
-            # The last carrier of the last iteration can run until the iteration's end
-            else:
-                duration = (vips.trigger_period * vips.iterations) - t - 2e-9
-            vips.lgr.add_line(f"q.output_carrier(time={t}, duration={duration}, port={p + 1})")
-            q.output_carrier(t, duration, p+1)
 
 
 def setup_pulse(vips, iteration, prev_output_time, pulse, q):

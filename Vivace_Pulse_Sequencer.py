@@ -6,7 +6,7 @@ import numpy as np
 
 from BaseDriver import LabberDriver, Error
 
-from vivace import pulsed
+from vivace import pulsed, version as vivace_version, utils as vivace_utils, __version__ as api_ver
 import input_handling
 import logger
 import utils
@@ -178,18 +178,15 @@ class Driver(LabberDriver):
             self.vips_ver = version
 
         # Get Vivace's version numbers
+        self.vivace_api_ver = api_ver
         self.dry_run = not self.getValue('Vivace connection enabled')
         with pulsed.Pulsed(dry_run=self.dry_run, address=self.address) as q:
-            self.vivace_api_ver = '1.0.2'  # TODO fetch from Vivace
-
             try:
-                fw_ver = q._rflockin.read_register(24)
-                server_ver = q._rflockin.get_server_version()
+                self.vivace_fw_ver = vivace_version.get_version_firmware(q)
+                self.vivace_server_ver = vivace_version.get_version_server(q)
             except AttributeError:
-                fw_ver = 'Could not connect to Vivace :('
-                server_ver = 'Could not connect to Vivace :('
-            self.vivace_fw_ver = fw_ver
-            self.vivace_server_ver = server_ver
+                self.vivace_fw_ver = 'Could not connect to Vivace :('
+                self.vivace_server_ver = 'Could not connect to Vivace :('
 
     def performGetValue(self, quant, options={}):
         """
@@ -496,7 +493,7 @@ class Driver(LabberDriver):
                 bias = self.getValue(f'Port {port} - DC bias')
                 bias = bias / 1.25
                 self.lgr.add_line(f'q._rflockin.set_bias_dac(port={port}, bias={bias})')
-                q._rflockin.set_bias_dac(port, bias)
+                q.set_output_bias(bias, port)
 
     def validate_pulse_definitions(self):
         """

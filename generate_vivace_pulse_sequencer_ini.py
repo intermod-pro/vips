@@ -16,7 +16,7 @@ TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 MATCH_TEMPLATES = ['Square', 'Sin2', 'Triangle']
 MATCH_TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
-VERSION = '1.3.5'
+VERSION = '1.4.0'
 DRIVER_PATH = 'Vivace_Pulse_Sequencer'
 INTERFACE = 'TCPIP'
 
@@ -524,19 +524,26 @@ def section_debug():
     gen.tooltip('When disabled, ViPS will not send any data to the Vivace hardware. '
                 'All output will default to dummy values.')
 
+    # TODO
+    # group = 'Hardware reboot'
+    #
+    # gen.create_quant('Reboot', 'Reboot Vivace hardware', 'BUTTON', group, section)
+    # gen.set_cmd('reboot')
+    # gen.tooltip('Pressing this button will reboot the Vivace hardware. The reboot should take less than a minute.')
+
     group = 'Versions'
 
     gen.create_quant('ViPS version', 'ViPS', 'STRING', group, section)
     gen.set_cmd('vips_version')
+
+    gen.create_quant('Vivace API version', 'Vivace API', 'STRING', group, section)
+    gen.set_cmd('vivace_api_version')
 
     gen.create_quant('Vivace firmware version', 'Vivace firmware', 'STRING', group, section)
     gen.set_cmd('vivace_fw_version')
 
     gen.create_quant('Vivace server version', 'Vivace server', 'STRING', group, section)
     gen.set_cmd('vivace_server_version')
-
-    gen.create_quant('Vivace API version', 'Vivace API', 'STRING', group, section)
-    gen.set_cmd('vivace_api_version')
 
 
 ########## INIT ##########
