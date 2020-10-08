@@ -16,7 +16,7 @@ TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 MATCH_TEMPLATES = ['Square', 'Sin2', 'Triangle']
 MATCH_TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
-VERSION = '1.4.0'
+VERSION = '1.4.1'
 DRIVER_PATH = 'Vivace_Pulse_Sequencer'
 INTERFACE = 'TCPIP'
 
@@ -181,7 +181,6 @@ def section_port_sequence(port):
     gen.limits(-0.05, 0.05)
     gen.unit('V')
     gen.tooltip('Range -50mV to +50mV')
-    gen.visibility(f'Port {port} - mode', 'Copy', 'Define')
 
     # Number of groups to display
     gen.small_comment(f'Number of pulses for port {port}')
@@ -228,6 +227,11 @@ def section_port_sequence(port):
         gen.create_quant(f'Port {port} - def {i} - DRAG phase shift', 'Sibling phase shift', 'DOUBLE', group, section)
         gen.unit('PI rad')
         gen.limits(-2, 2)
+        gen.visibility(f'Port {port} - def {i} - sine generator', 'DRAG')
+
+        gen.create_quant(f'Port {port} - def {i} - DRAG amplitude scale multiplier',
+                         'Sibling amplitude scale multiplier', 'DOUBLE', group, section)
+        gen.default(1)
         gen.visibility(f'Port {port} - def {i} - sine generator', 'DRAG')
 
         gen.create_quant(f'Port {port} - def {i} - DRAG scale', 'DRAG scale', 'DOUBLE', group, section)

@@ -186,6 +186,7 @@ def calculate_drag(vips, def_idx, time, port, template_no, amp, freq, phase, q):
     scale = vips.getValue(f'Port {port} - def {def_idx} - DRAG scale')
     detuning = vips.getValue(f'Port {port} - def {def_idx} - DRAG detuning frequency')
     phase_shift = vips.getValue(f'Port {port} - def {def_idx} - DRAG phase shift')
+    sibl_amp_multiplier = vips.getValue(f'Port {port} - def {def_idx} - DRAG amplitude scale multiplier')
     cond1 = vips.getValue(f'Port {port} - def {def_idx} - Template matching condition 1')
     cond1 = utils.combo_to_int(cond1)
     cond1_quad = vips.getValue(f'Port {port} - def {def_idx} - Template matching condition 1 quadrature')
@@ -267,23 +268,29 @@ def calculate_drag(vips, def_idx, time, port, template_no, amp, freq, phase, q):
         d_port = port if i in (0, 1) else sibling_port
         d_carrier = 1 if i in (0, 2) else 2
 
-        # Phase offset and template index is different between every definition
+        # Phase offset, ampl scale and template index is different between every definition
         if i == 0:
             d_idx = base_re_idx
             # Cosine, so we don't need to shift the carrier
             d_phase = phase.copy()
+            # Don't scale amplitude on the base port
+            amp_multiplier = 1
         elif i == 1:
             d_idx = base_im_idx
-            # Negative cosine with pi/2 offset, i.e. a negative pi/2 offset
-            d_phase = [p - 1/2 for p in phase.copy()]
+            # Sine, i.e. a negative pi/2 offset
+            d_phase = [p - 0.5 for p in phase.copy()]
+            amp_multiplier = 1
         elif i == 2:
             d_idx = sibl_re_idx
-            # Sine, so negative pi/2 offset
-            d_phase = [p - 1/2 + phase_shift for p in phase.copy()]
+            # Cosine
+            d_phase = [p + phase_shift for p in phase.copy()]
+            # Amplitude on sibling ports may be rescaled by user
+            amp_multiplier = sibl_amp_multiplier
         else:
             d_idx = sibl_im_idx
-            # Negative sine with pi/2 offset, so a pi offset
-            d_phase = [p + 1 + phase_shift for p in phase.copy()]
+            # Sine
+            d_phase = [p - 0.5 + phase_shift for p in phase.copy()]
+            amp_multiplier = sibl_amp_multiplier
 
         # Recreate the template identifier used before
         template_ident = TemplateIdentifier(d_port, d_carrier, d_idx, cond1, cond2, cond1_quad, cond2_quad)
@@ -295,7 +302,7 @@ def calculate_drag(vips, def_idx, time, port, template_no, amp, freq, phase, q):
             'Template_no': template_no,
             'Template_identifier': template_ident,
             'DRAG_idx': d_idx,
-            'Amp': amp.copy(),
+            'Amp': [a * amp_multiplier for a in amp.copy()],
             'Freq': freq.copy(),
             'Phase': d_phase}
         )
