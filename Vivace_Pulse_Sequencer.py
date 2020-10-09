@@ -184,7 +184,7 @@ class Driver(LabberDriver):
             try:
                 self.vivace_fw_ver = vivace_version.get_version_firmware(q)
                 self.vivace_server_ver = vivace_version.get_version_server(q)
-            except AttributeError:
+            except (AttributeError, ValueError):
                 self.vivace_fw_ver = 'Could not connect to Vivace :('
                 self.vivace_server_ver = 'Could not connect to Vivace :('
 
@@ -355,32 +355,20 @@ class Driver(LabberDriver):
         """
         matchings = []
         for m in self.template_matchings:
-            curr_match_results = []
-            match_i1 = q.get_template_matching_data(m[1])[0]
-            match_q1 = q.get_template_matching_data(m[3])[0]
+            i_results = q.get_template_matching_data(m[2])
+            q_results = q.get_template_matching_data(m[3])
+            # Add the matching results of the two templates used
+            match_i = i_results[0] + i_results[1]
+            match_q = q_results[0] + q_results[1]
 
-            if m[2] is not None:
-                match_i2 = q.get_template_matching_data(m[2])[0]
-                match_q2 = q.get_template_matching_data(m[4])[0]
+            # Normalise results
+            # TODO change
+            # curr_match_results.append(match_i / self.sampling_freq)
+            # curr_match_results.append(match_q / self.sampling_freq)
+            match_i = match_i * m[1]
+            match_q = match_q * m[1]
 
-                # Combine the I results and Q results
-                combined_i = match_i1 + match_q2
-                combined_q = match_i2 - match_q1
-
-                # Divide the match result by number of points in match to normalize
-                # TODO change
-                #curr_match_results.append(combined_i / self.sampling_freq)
-                curr_match_results.append(combined_i * m[5])
-                #curr_match_results.append(combined_q / self.sampling_freq)
-                curr_match_results.append(combined_q * m[5])
-            else:
-                # If matching was only on one port, just add I and Q as is
-                #curr_match_results.append(match_i1 / self.sampling_freq)
-                curr_match_results.append(match_i1 * m[5])
-                #curr_match_results.append(match_q1 / self.sampling_freq)
-                curr_match_results.append(match_q1 * m[5])
-
-            matchings.append(curr_match_results)
+            matchings.append([match_i, match_q])
 
         return matchings
 
@@ -593,6 +581,7 @@ class Driver(LabberDriver):
                     # Set up the old target pulse's template on the new port
                     p_ti = pulse['Template_identifier']
                     new_template_identifier = templates.TemplateIdentifier(port, p_ti.carrier, p_ti.def_idx,
+                                                                           p_ti.cond_on,
                                                                            p_ti.cond1, p_ti.cond2,
                                                                            p_ti.cond1_quad, p_ti.cond2_quad)
                     p_copy['Template_identifier'] = new_template_identifier

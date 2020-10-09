@@ -128,10 +128,8 @@ def setup_template_matches(vips, q):
     for m in vips.template_matchings:
         if m[0] not in matches_by_time:
             matches_by_time[m[0]] = []
-        if m[2] is None:
-            matches_by_time[m[0]].extend([m[1], m[3]])
-        else:
-            matches_by_time[m[0]].extend([m[1], m[2], m[3], m[4]])
+
+        matches_by_time[m[0]].extend([m[2], m[3]])
 
     for i in range(vips.iterations):
         for start_time in matches_by_time:
