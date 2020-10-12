@@ -16,7 +16,7 @@ TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 MATCH_TEMPLATES = ['Square', 'Sin2', 'Triangle']
 MATCH_TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
-VERSION = '1.5.0'
+VERSION = '1.5.1'
 DRIVER_PATH = 'Vivace_Pulse_Sequencer'
 INTERFACE = 'TCPIP'
 
@@ -530,12 +530,18 @@ def section_debug():
     gen.tooltip('When disabled, ViPS will not send any data to the Vivace hardware. '
                 'All output will default to dummy values.')
 
-    # TODO
-    # group = 'Hardware reboot'
-    #
-    # gen.create_quant('Reboot', 'Reboot Vivace hardware', 'BUTTON', group, section)
-    # gen.set_cmd('reboot')
-    # gen.tooltip('Pressing this button will reboot the Vivace hardware. The reboot should take less than a minute.')
+    group = 'Hardware reboot'
+
+    gen.create_quant('Reboot', 'Reboot Vivace hardware', 'BUTTON', group, section)
+    gen.set_cmd('reboot')
+    gen.tooltip('Pressing this button will reboot the Vivace hardware. The reboot should take less than a minute.')
+
+    gen.create_quant('Ping', 'Ping Vivace board', 'BUTTON', group, section)
+    gen.set_cmd('ping')
+    gen.tooltip('Ping the Vivace board to see if it\'s running and possible to connect to.')
+
+    gen.create_quant('Ping result', 'Ping result', 'STRING', group, section)
+    gen.permission('READ')
 
     group = 'Versions'
 

@@ -17,6 +17,7 @@ import luts
 import template_matching
 import scheduling
 import conditionals
+import subprocess
 
 
 class Driver(LabberDriver):
@@ -161,6 +162,20 @@ class Driver(LabberDriver):
         if 'vivace_api_version' in set_commands:
             return self.vivace_api_ver
 
+        if 'reboot' in set_commands:
+            vivace_utils.ssh_reboot(self.address)
+            return value
+
+        if 'ping' in set_commands:
+            command = ['ping', '-n', '1', self.address]
+
+            result = subprocess.call(command) == 0
+            if result:
+                self.setValue('Ping result', f'Successful ping to \"{self.address}\"')
+            else:
+                self.setValue('Ping result', 'Ping failed')
+            return value
+
         return input_handling.handle_input(quant, value)
 
     def fetch_version_numbers(self):
@@ -176,17 +191,21 @@ class Driver(LabberDriver):
                 line = next(ini)
             version = line.split(': ')[1]
             self.vips_ver = version
+            self.setValue('ViPS version', self.vips_ver)
 
         # Get Vivace's version numbers
         self.vivace_api_ver = api_ver
+        self.setValue('Vivace API version', self.vivace_api_ver)
         self.dry_run = not self.getValue('Vivace connection enabled')
-        with pulsed.Pulsed(dry_run=self.dry_run, address=self.address) as q:
-            try:
+        try:
+            with pulsed.Pulsed(dry_run=self.dry_run, address=self.address) as q:
                 self.vivace_fw_ver = vivace_version.get_version_firmware(q)
+                self.setValue('Vivace firmware version', self.vivace_fw_ver)
                 self.vivace_server_ver = vivace_version.get_version_server(q)
-            except (AttributeError, ValueError):
-                self.vivace_fw_ver = 'Could not connect to Vivace :('
-                self.vivace_server_ver = 'Could not connect to Vivace :('
+                self.setValue('Vivace server version', self.vivace_server_ver)
+        except (AttributeError, ValueError, ConnectionAbortedError, ConnectionResetError):
+            self.vivace_fw_ver = 'Could not connect to Vivace :('
+            self.vivace_server_ver = 'Could not connect to Vivace :('
 
     def performGetValue(self, quant, options={}):
         """
