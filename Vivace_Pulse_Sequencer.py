@@ -167,13 +167,13 @@ class Driver(LabberDriver):
             return value
 
         if 'ping' in set_commands:
+            self.setValue('Ping result', f'Pinging, waiting for response...')
             command = ['ping', '-n', '1', self.address]
-
             result = subprocess.call(command) == 0
             if result:
                 self.setValue('Ping result', f'Successful ping to \"{self.address}\"')
             else:
-                self.setValue('Ping result', 'Ping failed')
+                self.setValue('Ping result', f'Ping failed at "{self.address}"')
             return value
 
         return input_handling.handle_input(quant, value)
