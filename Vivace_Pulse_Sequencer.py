@@ -198,7 +198,7 @@ class Driver(LabberDriver):
         self.setValue('Vivace API version', self.vivace_api_ver)
         self.dry_run = not self.getValue('Vivace connection enabled')
         try:
-            with pulsed.Pulsed(dry_run=self.dry_run, address=self.address) as q:
+            with pulsed.Pulsed(ext_ref_clk=True, dry_run=self.dry_run, address=self.address) as q:
                 self.vivace_fw_ver = vivace_version.get_version_firmware(q)
                 self.setValue('Vivace firmware version', self.vivace_fw_ver)
                 self.vivace_server_ver = vivace_version.get_version_server(q)
@@ -374,6 +374,8 @@ class Driver(LabberDriver):
         """
         matchings = []
         for m in self.template_matchings:
+            self.lgr.add_line(f'q.get_template_matching_data({m[2]})')
+            self.lgr.add_line(f'q.get_template_matching_data({m[3]})')
             i_results = q.get_template_matching_data(m[2])
             q_results = q.get_template_matching_data(m[3])
             # Add the matching results of the two templates used
