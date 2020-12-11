@@ -501,7 +501,7 @@ class Driver(LabberDriver):
             for port in range(1, self.N_OUT_PORTS+1):
                 bias = self.getValue(f'Port {port} - DC bias')
                 bias = bias / 1.25
-                self.lgr.add_line(f'q._rflockin.set_bias_dac(port={port}, bias={bias})')
+                self.lgr.add_line(f'q.set_output_bias(bias={bias}, port={port})')
                 q.set_output_bias(bias, port)
 
     def validate_pulse_definitions(self):

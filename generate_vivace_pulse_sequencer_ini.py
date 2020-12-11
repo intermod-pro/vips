@@ -16,7 +16,7 @@ TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 MATCH_TEMPLATES = ['Square', 'Sin2', 'Triangle']
 MATCH_TEMPLATES.extend([f'Custom {i}' for i in range(1, CUSTOM_TEMPLATES + 1)])
 NAME = 'Vivace Pulse Sequencer'
-VERSION = '1.5.2'
+VERSION = '1.5.3'
 DRIVER_PATH = 'Vivace_Pulse_Sequencer'
 INTERFACE = 'TCPIP'
 
@@ -59,6 +59,11 @@ def section_general():
     gen.default(1)
     gen.set_cmd('int')
     gen.show_in_measurement(True)
+
+    # Phase sync behaviour
+    group = 'Phase sync settings'
+    gen.create_quant('Phase sync behaviour', 'Sync behaviour', 'COMBO', group, section)
+    gen.combo_options('Sync to iteration start', 'Sync to first pulse of same freq.')
 
     # -- Output stuff --
     group = 'Time trace output selection'

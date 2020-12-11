@@ -19,6 +19,9 @@ def get_LUT_values(vips):
     so that the board will only ever need to step once in the LUT between pulses.
     Return two matrices: one for the amplitude scale values and one for tuples of frequency and phase values.
     """
+    # Get phase sync behaviour
+    sync_mode = vips.getValue('Phase sync behaviour')
+
     # Copy the original pulse def list
     pulse_defs_copy = [pulse for pulse in vips.pulse_definitions]
 
@@ -79,18 +82,22 @@ def get_LUT_values(vips):
                 if carrier == 0:
                     continue
 
-                if p_freq in reference_times:
-                    ref_start = reference_times[p_freq]
+                if sync_mode == 'Sync to first pulse of same freq.':
+                    if p_freq in reference_times:
+                        ref_start = reference_times[p_freq]
+                    else:
+                        reference_times[p_freq] = abs_time
+                        ref_start = abs_time
                 else:
-                    reference_times[p_freq] = abs_time
-                    ref_start = abs_time
+                    # Sync all pulses' phase to the start of the iteration
+                    ref_start = 0
 
                 if carrier == 1:
                     # If we have a free slot for carrier 1, save it and move on
                     if latest_fp1 is None:
                         # Calculate the phase difference between this pulse and the start of the carrier change
                         carr_change_ps = ((abs_time - latest_change) * p_freq * 2)
-                        # Phase sync to the reference point, then subtract the potential "double generator" offset
+                        # Phase sync to the reference point, then subtract the "phase time" since carrier change
                         ph = utils.phase_sync(p_freq, p_phase, abs_time - ref_start) - carr_change_ps
                         for pul in vips.pulse_definitions:
                             if pul['ID'] == pulse['ID']:
@@ -101,7 +108,7 @@ def get_LUT_values(vips):
                     # If this pulse uses the same values as the last saved ones, we don't need a swap
                     elif latest_fp1 == (p_freq, p_phase):
                         continue
-                    # New freq/phase, we need a reset
+                    # New freq/phase pair, we need a reset
                     else:
                         # If we never found any pulses for carrier 2 before we needed a swap, use dummy values
                         if latest_fp2 is None:
@@ -126,7 +133,7 @@ def get_LUT_values(vips):
                     if latest_fp2 is None:
                         # Calculate the phase difference between this pulse and the start of the carrier change
                         carr_change_ps = ((abs_time - latest_change) * p_freq * 2)
-                        # Phase sync to the reference point, then subtract the potential "double generator" offset
+                        # Phase sync to the reference point, then subtract the "phase time" since carrier change
                         ph = utils.phase_sync(p_freq, p_phase, abs_time - ref_start) - carr_change_ps
                         for pul in vips.pulse_definitions:
                             if pul['ID'] == pulse['ID']:
@@ -178,12 +185,12 @@ def apply_LUTs(vips, q):
     """
     for p in range(vips.N_OUT_PORTS):
         port = p + 1
-        for c in range(2):
+        for carrier in range(2):
             # Break apart our freq-phase pairs
             freq_values = []
             phase_values = []
             for (fp1, fp2) in vips.fp_matrix[p]:
-                if c == 0:
+                if carrier == 0:
                     freq = fp1[0]
                     phase = fp1[1]
                 else:
@@ -198,9 +205,9 @@ def apply_LUTs(vips, q):
                 phase_values.append(phase * np.pi)
             # Feed our values into the tables
             if len(freq_values) > 0 and len(phase_values) > 0:
-                vips.lgr.add_line(f'q.setup_freq_lut(port={port}, carrier={c + 1}, freq={freq_values}, phase={phase_values})')
+                vips.lgr.add_line(f'q.setup_freq_lut(port={port}, carrier={carrier + 1}, freq={freq_values}, phase={phase_values})')
                 try:
-                    q.setup_freq_lut(port, c+1, freq_values, phase_values)
+                    q.setup_freq_lut(port, carrier+1, freq_values, phase_values)
                 except ValueError as err:
                     err_str = err.args[0]
                     if err_str == 'Invalid frequency':
