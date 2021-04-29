@@ -6,7 +6,7 @@ import numpy as np
 
 from BaseDriver import LabberDriver, Error
 
-from vivace import pulsed, version as vivace_version, utils as vivace_utils, __version__ as api_ver
+from presto import pulsed, version as presto_version, utils as presto_utils, __version__ as api_ver
 import input_handling
 import logger
 import utils
@@ -42,9 +42,9 @@ class Driver(LabberDriver):
 
     # Version numbers, will be fetched from Vivace and the ViPS definition
     vips_ver = None
-    vivace_fw_ver = None
-    vivace_server_ver = None
-    vivace_api_ver = None
+    presto_fw_ver = None
+    presto_server_ver = None
+    presto_api_ver = None
 
     # Logger for debug purposes
     lgr = logger.Logger()
@@ -154,16 +154,16 @@ class Driver(LabberDriver):
             return self.vips_ver
 
         if 'vivace_fw_version' in set_commands:
-            return self.vivace_fw_ver
+            return self.presto_fw_ver
 
         if 'vivace_server_version' in set_commands:
-            return self.vivace_server_ver
+            return self.presto_server_ver
 
         if 'vivace_api_version' in set_commands:
-            return self.vivace_api_ver
+            return self.presto_api_ver
 
         if 'reboot' in set_commands:
-            vivace_utils.ssh_reboot(self.address)
+            presto_utils.ssh_reboot(self.address)
             return value
 
         if 'ping' in set_commands:
@@ -194,18 +194,20 @@ class Driver(LabberDriver):
             self.setValue('ViPS version', self.vips_ver)
 
         # Get Vivace's version numbers
-        self.vivace_api_ver = api_ver
-        self.setValue('Vivace API version', self.vivace_api_ver)
+        self.presto_api_ver = api_ver
+        self.setValue('Vivace API version', self.presto_api_ver)
         self.dry_run = not self.getValue('Vivace connection enabled')
         try:
-            with pulsed.Pulsed(ext_ref_clk=True, dry_run=self.dry_run, address=self.address) as q:
-                self.vivace_fw_ver = vivace_version.get_version_firmware(q)
-                self.setValue('Vivace firmware version', self.vivace_fw_ver)
-                self.vivace_server_ver = vivace_version.get_version_server(q)
-                self.setValue('Vivace server version', self.vivace_server_ver)
+            with pulsed.Pulsed(ext_ref_clk=True, dry_run=self.dry_run, address=self.address,
+                               adc_mode=pulsed.AdcDirect, adc_fsample=pulsed.AdcG4,
+                               dac_mode=pulsed.DacDirect, dac_fsample=pulsed.DacG4) as q:
+                self.presto_fw_ver = presto_version.get_version_firmware(q)
+                self.setValue('Vivace firmware version', self.presto_fw_ver)
+                self.presto_server_ver = presto_version.get_version_server(q)
+                self.setValue('Vivace server version', self.presto_server_ver)
         except (AttributeError, ValueError, ConnectionAbortedError, ConnectionResetError):
-            self.vivace_fw_ver = 'Could not connect to Vivace :('
-            self.vivace_server_ver = 'Could not connect to Vivace :('
+            self.presto_fw_ver = 'Could not connect to Vivace :('
+            self.presto_server_ver = 'Could not connect to Vivace :('
 
     def performGetValue(self, quant, options={}):
         """
@@ -289,13 +291,17 @@ class Driver(LabberDriver):
 
         if quant.get_cmd == 'template_preview':
             # Set up instrument to perform error checking and obtain sampling rate
-            with pulsed.Pulsed(ext_ref_clk=True, dry_run=True, address=self.address) as q:
+            with pulsed.Pulsed(ext_ref_clk=True, dry_run=True, address=self.address,
+                               adc_mode=pulsed.AdcDirect, adc_fsample=pulsed.AdcG4,
+                               dac_mode=pulsed.DacDirect, dac_fsample=pulsed.DacG4) as q:
                 self.setup_instrument(q)
             return previews.get_template_preview(self, quant)
 
         if quant.get_cmd == 'sequence_preview':
             # Set up instrument to form the full pulse sequence
-            with pulsed.Pulsed(ext_ref_clk=True, dry_run=True, address=self.address) as q:
+            with pulsed.Pulsed(ext_ref_clk=True, dry_run=True, address=self.address,
+                               adc_mode=pulsed.AdcDirect, adc_fsample=pulsed.AdcG4,
+                               dac_mode=pulsed.DacDirect, dac_fsample=pulsed.DacG4) as q:
                 self.setup_instrument(q)
             return previews.get_sequence_preview(self, quant)
 
@@ -339,7 +345,9 @@ class Driver(LabberDriver):
         Store the resulting output in a global variable.
         """
         self.dry_run = not self.getValue('Vivace connection enabled')
-        with pulsed.Pulsed(ext_ref_clk=True, dry_run=self.dry_run, address=self.address) as q:
+            with pulsed.Pulsed(ext_ref_clk=True, dry_run=True, address=self.address,
+                               adc_mode=pulsed.AdcDirect, adc_fsample=pulsed.AdcG4,
+                               dac_mode=pulsed.DacDirect, dac_fsample=pulsed.DacG4) as q:
             self.setup_instrument(q)
 
             # Set up our actual LUTs on the board

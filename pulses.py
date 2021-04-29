@@ -220,10 +220,10 @@ def calculate_drag(vips, def_idx, time, port, template_no, template_identifier, 
         vips.lgr.add_line(f'q.setup_template(port={sibling_port}, points={re_points}, carrier=1, use_scale=True)')
         vips.lgr.add_line(f'q.setup_template(port={sibling_port}, points={im_points}, carrier=2, use_scale=True)')
         try:
-            base_re_template = q.setup_template(port, re_points, 1, True)
-            base_im_template = q.setup_template(port, im_points, 2, True)
-            sibl_re_template = q.setup_template(sibling_port, re_points, 1, True)
-            sibl_im_template = q.setup_template(sibling_port, im_points, 2, True)
+            base_re_template = q.setup_template(port, 0, re_points)
+            base_im_template = q.setup_template(port, 1, im_points)
+            sibl_re_template = q.setup_template(sibling_port, 0, re_points)
+            sibl_im_template = q.setup_template(sibling_port, 1, im_points)
         except RuntimeError as error:
             if error.args[0].startswith('Not enough templates on output'):
                 raise RuntimeError('There are more than 8 templates in use on a single carrier'
@@ -338,15 +338,12 @@ def setup_template(vips, q, template_identifier):
                 if 'Flank Duration' in template_def:
                     initial_length -= 2 * template_def['Flank Duration']
                     vips.lgr.add_line(f'q.setup_template(port={port}, points={template_def["Rise Points"]}, carrier={carrier}, use_scale=True)')
-                    rise_template = q.setup_template(port, template_def['Rise Points'], carrier, use_scale=True)
+                    rise_template = q.setup_template(port, carrier-1, template_def['Rise Points'])
                     vips.lgr.add_line(f'q.setup_template(port={port}, points={template_def["Fall Points"]}, carrier={carrier}, use_scale=True)')
-                    fall_template = q.setup_template(port, template_def['Fall Points'], carrier, use_scale=True)
+                    fall_template = q.setup_template(port, carrier-1, template_def['Fall Points'])
                 vips.lgr.add_line(f'q.setup_long_drive(port={port}, carrier={carrier}, duration={initial_length}, use_scale=True)')
                 try:
-                    long_template = q.setup_long_drive(port,
-                                                       carrier,
-                                                       initial_length,
-                                                       use_scale=True)
+                    long_template = q.setup_long_drive(port, carrier-1, initial_length)
                 except ValueError as err:
                     if err.args[0].startswith('valid carriers'):
                         raise ValueError('Long drive envelopes have to be on either sine generator 1 or 2!')
@@ -356,10 +353,7 @@ def setup_template(vips, q, template_identifier):
                     vips.templates[template_identifier] = long_template
             else:
                 vips.lgr.add_line(f'q.setup_template(port={port}, points={template_def["Points"]}, carrier={carrier}, use_scale=True)')
-                vips.templates[template_identifier] = q.setup_template(port,
-                                                                       template_def['Points'],
-                                                                       carrier,
-                                                                       use_scale=True)
+                vips.templates[template_identifier] = q.setup_template(port, carrier-1, template_def['Points'])
         except RuntimeError as error:
             if error.args[0].startswith('Not enough templates on output'):
                 raise RuntimeError(f'There are more than 8 templates in use on carrier {carrier}'

@@ -207,7 +207,7 @@ def apply_LUTs(vips, q):
             if len(freq_values) > 0 and len(phase_values) > 0:
                 vips.lgr.add_line(f'q.setup_freq_lut(port={port}, carrier={carrier + 1}, freq={freq_values}, phase={phase_values})')
                 try:
-                    q.setup_freq_lut(port, carrier+1, freq_values, phase_values)
+                    q.setup_freq_lut(port, carrier, freq_values, phase_values)
                 except ValueError as err:
                     err_str = err.args[0]
                     if err_str == 'Invalid frequency':
@@ -221,7 +221,7 @@ def apply_LUTs(vips, q):
         if len(vips.amp_matrix[p]) > 0:
             vips.lgr.add_line(f'q.setup_scale_lut(port={port}, amp={vips.amp_matrix[p]})')
             try:
-                q.setup_scale_lut(port, vips.amp_matrix[p])
+                q.setup_scale_lut(port, None, vips.amp_matrix[p])
             except ValueError as err:
                 err_str = err.args[0]
                 if err_str.startswith('scale can contain at most'):
@@ -232,3 +232,6 @@ def apply_LUTs(vips, q):
                     raise ValueError(f'The amplitude scale on port {port} '
                                      f'is outside the range [0, 1] at some point!')
                 raise err
+        else:
+            q.setup_scale_lut(port, None, 1.0)
+
