@@ -88,10 +88,10 @@ def set_long_duration(vips, template_def, template, duration):
     if isinstance(template, tuple):
         long_duration = duration - 2 * template_def['Flank Duration']
         vips.lgr.add_line(f'update_total_duration({long_duration})')
-        template[1].update_total_duration(long_duration)
+        template[1].set_total_duration(long_duration)
     else:
         vips.lgr.add_line(f'update_total_duration({duration})')
-        template.update_total_duration(duration)
+        template.set_total_duration(duration)
 
 
 def output_pulse(vips, time, duration, template, template_def, q):

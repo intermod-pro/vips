@@ -6,7 +6,7 @@ A collection of functions for ViPS's preview functionality.
 
 import numpy as np
 
-from vivace import pulsed
+from presto import pulsed
 import utils
 import templates
 

@@ -221,7 +221,8 @@ def apply_LUTs(vips, q):
         if len(vips.amp_matrix[p]) > 0:
             vips.lgr.add_line(f'q.setup_scale_lut(port={port}, amp={vips.amp_matrix[p]})')
             try:
-                q.setup_scale_lut(port, None, vips.amp_matrix[p])
+                q.setup_scale_lut(port, 0, vips.amp_matrix[p])
+                q.setup_scale_lut(port, 1, vips.amp_matrix[p])
             except ValueError as err:
                 err_str = err.args[0]
                 if err_str.startswith('scale can contain at most'):
@@ -233,5 +234,6 @@ def apply_LUTs(vips, q):
                                      f'is outside the range [0, 1] at some point!')
                 raise err
         else:
-            q.setup_scale_lut(port, None, 1.0)
+            q.setup_scale_lut(port, 0, 1.0)
+            q.setup_scale_lut(port, 1, 1.0)
 

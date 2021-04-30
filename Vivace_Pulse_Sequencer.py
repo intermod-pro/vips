@@ -6,7 +6,8 @@ import numpy as np
 
 from BaseDriver import LabberDriver, Error
 
-from presto import pulsed, version as presto_version, utils as presto_utils, __version__ as api_ver
+#from presto import pulsed, version as presto_version, utils as presto_utils, __version__ as api_ver
+from presto import pulsed, utils as presto_utils
 import input_handling
 import logger
 import utils
@@ -194,16 +195,16 @@ class Driver(LabberDriver):
             self.setValue('ViPS version', self.vips_ver)
 
         # Get Vivace's version numbers
-        self.presto_api_ver = api_ver
+        self.presto_api_ver = 0.0 # TODO api_ver
         self.setValue('Vivace API version', self.presto_api_ver)
         self.dry_run = not self.getValue('Vivace connection enabled')
         try:
             with pulsed.Pulsed(ext_ref_clk=True, dry_run=self.dry_run, address=self.address,
                                adc_mode=pulsed.AdcDirect, adc_fsample=pulsed.AdcG4,
                                dac_mode=pulsed.DacDirect, dac_fsample=pulsed.DacG4) as q:
-                self.presto_fw_ver = presto_version.get_version_firmware(q)
+                self.presto_fw_ver = 0.0  # TODO presto_version.get_version_firmware(q)
                 self.setValue('Vivace firmware version', self.presto_fw_ver)
-                self.presto_server_ver = presto_version.get_version_server(q)
+                self.presto_server_ver = 0.0  # TODO presto_version.get_version_server(q)
                 self.setValue('Vivace server version', self.presto_server_ver)
         except (AttributeError, ValueError, ConnectionAbortedError, ConnectionResetError):
             self.presto_fw_ver = 'Could not connect to Vivace :('
@@ -345,9 +346,9 @@ class Driver(LabberDriver):
         Store the resulting output in a global variable.
         """
         self.dry_run = not self.getValue('Vivace connection enabled')
-            with pulsed.Pulsed(ext_ref_clk=True, dry_run=True, address=self.address,
-                               adc_mode=pulsed.AdcDirect, adc_fsample=pulsed.AdcG4,
-                               dac_mode=pulsed.DacDirect, dac_fsample=pulsed.DacG4) as q:
+        with pulsed.Pulsed(ext_ref_clk=True, dry_run=self.dry_run, address=self.address,
+                           adc_mode=pulsed.AdcDirect, adc_fsample=pulsed.AdcG4,
+                           dac_mode=pulsed.DacDirect, dac_fsample=pulsed.DacG4) as q:
             self.setup_instrument(q)
 
             # Set up our actual LUTs on the board
@@ -361,11 +362,11 @@ class Driver(LabberDriver):
 
             # Start measuring
             total_time = self.trigger_period * (self.iterations + 1)
-            self.lgr.add_line(f'q.perform_measurement(time: {total_time}, repeat_count: 1, averages: {self.averages})')
-            output = q.perform_measurement(total_time, 1, self.averages)
+            self.lgr.add_line(f'q.run(time: {total_time}, repeat_count: 1, averages: {self.averages})')
+            q.run(total_time, 1, self.averages)
             if not q.dry_run:
                 # Store the results
-                (t_array, result) = output
+                t_array, result = q.get_store_data()
                 self.time_array = list(t_array)
                 self.sampling_results = result
                 self.match_results = self.get_template_matching_results(q)
@@ -409,7 +410,7 @@ class Driver(LabberDriver):
         # Get debug information
         self.get_debug_settings()
 
-        self.sampling_freq = q.sampling_freq
+        self.sampling_freq = q.get_fs("adc")
         # Store any custom variables the user sets up
         self.custom_vars = self.get_custom_variables()
         # Get some general parameters such as no. of averages, trigger period etc.
@@ -510,7 +511,7 @@ class Driver(LabberDriver):
                 bias = self.getValue(f'Port {port} - DC bias')
                 bias = bias / 1.25
                 self.lgr.add_line(f'q.set_output_bias(bias={bias}, port={port})')
-                q.set_output_bias(bias, port)
+                q.hardware.set_dc_bias(bias, port)
 
     def validate_pulse_definitions(self):
         """

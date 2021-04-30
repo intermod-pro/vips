@@ -338,11 +338,13 @@ def setup_template(vips, q, template_identifier):
                 if 'Flank Duration' in template_def:
                     initial_length -= 2 * template_def['Flank Duration']
                     vips.lgr.add_line(f'q.setup_template(port={port}, points={template_def["Rise Points"]}, carrier={carrier}, use_scale=True)')
-                    rise_template = q.setup_template(port, carrier-1, template_def['Rise Points'])
+                    group = max(0, carrier-1)
+                    rise_template = q.setup_template(port, group, template_def['Rise Points'], envelope=carrier > 0)
                     vips.lgr.add_line(f'q.setup_template(port={port}, points={template_def["Fall Points"]}, carrier={carrier}, use_scale=True)')
-                    fall_template = q.setup_template(port, carrier-1, template_def['Fall Points'])
+                    fall_template = q.setup_template(port, group, template_def['Fall Points'], envelope=carrier > 0)
                 vips.lgr.add_line(f'q.setup_long_drive(port={port}, carrier={carrier}, duration={initial_length}, use_scale=True)')
                 try:
+                    group = max(0, carrier-1)
                     long_template = q.setup_long_drive(port, carrier-1, initial_length)
                 except ValueError as err:
                     if err.args[0].startswith('valid carriers'):
@@ -353,7 +355,8 @@ def setup_template(vips, q, template_identifier):
                     vips.templates[template_identifier] = long_template
             else:
                 vips.lgr.add_line(f'q.setup_template(port={port}, points={template_def["Points"]}, carrier={carrier}, use_scale=True)')
-                vips.templates[template_identifier] = q.setup_template(port, carrier-1, template_def['Points'])
+                group = max(0, carrier-1)
+                vips.templates[template_identifier] = q.setup_template(port, group, template_def['Points'], envelope=carrier > 0)
         except RuntimeError as error:
             if error.args[0].startswith('Not enough templates on output'):
                 raise RuntimeError(f'There are more than 8 templates in use on carrier {carrier}'
@@ -386,14 +389,14 @@ def get_sample_windows(vips, q):
     if duration > 4096e-9:
         raise ValueError('Sampling duration must be in [0.0, 4096.0] ns')
 
-    vips.lgr.add_line(f'q.set_store_duration({duration})')
-    q.set_store_duration(duration)
-    vips.sampling_duration = duration
-
     # Save the ports we want to sample on
     vips.lgr.add_line(f'q.set_store_ports({sampling_ports})')
     q.set_store_ports(sampling_ports)
     vips.sampling_ports = sampling_ports
+
+    vips.lgr.add_line(f'q.set_store_duration({duration})')
+    q.set_store_duration(duration)
+    vips.sampling_duration = duration
 
     # Get times and duration
     start_times_string = vips.getValue(f'Sampling - start times')
